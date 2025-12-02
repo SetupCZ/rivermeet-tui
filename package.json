@@ -4,17 +4,15 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run --watch src/index.tsx"
+    "dev": "bun run --watch src/index.tsx",
+    "start": "bun run src/index.tsx",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
+    "@types/bun": "latest",
     "typescript": "^5"
   },
   "dependencies": {
-    "@opentui/core": "^0.1.53",
-    "@opentui/react": "^0.1.53",
-    "react": "^19.1.1"
+    "@opentui/core": "^0.1.54"
   }
 }
