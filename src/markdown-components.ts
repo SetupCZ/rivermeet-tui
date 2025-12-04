@@ -4,6 +4,7 @@ import type {
   RenderContext,
   ReadViewNode,
 } from "./types";
+import { logger } from './logger.ts'
 
 // Base class for markdown components
 abstract class BaseMarkdownComponent implements MarkdownComponent {
@@ -102,6 +103,7 @@ class ParagraphComponent extends BaseMarkdownComponent {
       content: "",
       children: [
         ...this.renderChildrenReadView(node.content, context),
+        // { content: "\n", sourceNode: node }, // Single line break after paragraph
       ],
       sourceNode: node,
     };
@@ -178,7 +180,7 @@ class TextComponent extends BaseMarkdownComponent {
     }
 
     return {
-      content: `<>${node.text || ""}</>`,
+      content: node.text || "",
       style,
       sourceNode: node,
     };
@@ -210,6 +212,7 @@ class HeadingComponent extends BaseMarkdownComponent {
       style: {
         bold: true,
         fg: colors[level - 1] || colors[0],
+        size: 25 + 1.1 * level
       },
       children: this.renderChildrenReadView(node.content, context),
       sourceNode: node,
@@ -314,6 +317,10 @@ class ListItemComponent extends BaseMarkdownComponent {
         ? `${context.orderedListCounter}.`
         : "•";
 
+    logger.debug("ListItem", {
+      content: `${indent}${marker} `,
+      nodeContent: node.content
+    })
     return {
       content: `${indent}${marker} `,
       style: { fg: "#565f89" },

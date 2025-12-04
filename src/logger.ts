@@ -26,13 +26,13 @@ class Logger {
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
     }
-    
+
     const date = new Date().toISOString().split("T")[0];
     this.logFile = path.join(logDir, `confluence-tui-${date}.log`);
-    this.logLevel = process.env.LOG_LEVEL 
+    this.logLevel = process.env.LOG_LEVEL
       ? LogLevel[process.env.LOG_LEVEL as keyof typeof LogLevel] ?? LogLevel.INFO
       : LogLevel.DEBUG;
-    
+
     this.info("Logger initialized", { logFile: this.logFile, logLevel: LogLevel[this.logLevel] });
   }
 
@@ -40,7 +40,7 @@ class Logger {
     const timestamp = new Date().toISOString();
     const entry: LogEntry = { timestamp, level, message, data };
     this.entries.push(entry);
-    
+
     let logLine = `[${timestamp}] [${level}] ${message}`;
     if (data !== undefined) {
       logLine += ` ${JSON.stringify(data, null, 2)}`;
@@ -50,9 +50,10 @@ class Logger {
 
   private write(level: LogLevel, levelName: string, message: string, data?: unknown): void {
     if (level < this.logLevel) return;
-    
+
     const logLine = this.formatMessage(levelName, message, data);
-    fs.appendFileSync(this.logFile, logLine + "\n");
+    console.log(logLine);
+    // fs.appendFileSync(this.logFile, logLine + "\n");
   }
 
   debug(message: string, data?: unknown): void {

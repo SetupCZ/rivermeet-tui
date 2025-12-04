@@ -133,6 +133,7 @@ export interface ReadViewNode {
     italic?: boolean;
     underline?: boolean;
     dim?: boolean;
+    size?: number
   };
   children?: ReadViewNode[];
   sourceNode?: ADFNode;
@@ -148,6 +149,9 @@ export interface NavigationState {
   cursorLine: number;
   cursorColumn: number;
   scrollOffset: number;
+  debugPanelOpen: boolean;
+  debugPanelMode: "logs" | "adf" | "markdown" | "readview";
+  activePanel: "main" | "debug";
 }
 
 // Cache types
