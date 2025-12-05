@@ -50,8 +50,6 @@ source ~/.zshrc  # or ~/.bashrc
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `EDITOR` | Text editor for editing pages | `vim` |
-| `DEBUG` | Enable debug mode (`1` or `true`) | Not set |
-| `LOG_LEVEL` | Logging verbosity | `DEBUG` |
 | `XDG_CONFIG_HOME` | Base config directory | `~/.config` |
 
 ### EDITOR
@@ -63,30 +61,6 @@ export EDITOR="nvim"  # Use Neovim
 export EDITOR="code --wait"  # Use VS Code
 export EDITOR="vim"  # Default
 ```
-
-### DEBUG
-
-Enable debug mode to show a debug panel with logs:
-
-```bash
-export DEBUG=1
-bunx rivermeet-tui
-```
-
-In debug mode, press `d` to toggle the debug panel.
-
-### LOG_LEVEL
-
-Control log verbosity:
-
-```bash
-export LOG_LEVEL="INFO"  # Less verbose
-export LOG_LEVEL="DEBUG"  # Most verbose (default)
-export LOG_LEVEL="WARN"   # Only warnings and errors
-export LOG_LEVEL="ERROR"  # Only errors
-```
-
-Logs are written to `~/.cache/rivermeet-tui/logs/rivermeet-tui-YYYY-MM-DD.log`.
 
 ## Priority
 
