@@ -1,12 +1,23 @@
 {
   "name": "rivermeet-tui",
-  "module": "src/index.tsx",
+  "version": "0.0.5",
+  "description": "Terminal UI for Confluence",
   "type": "module",
+  "bin": {
+    "rivermeet-tui": "./dist/rivermeet-tui"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "bun run --watch src/index.tsx",
     "start": "bun run src/index.tsx",
-    "typecheck": "tsc --noEmit",
-    "publish": "bun publish"
+    "build": "mkdir -p dist && bun build --compile --outfile dist/rivermeet-tui src/index.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/setupcz/confluence-tui"
   },
   "devDependencies": {
     "@types/bun": "latest",
