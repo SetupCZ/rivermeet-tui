@@ -300,7 +300,7 @@ export class ConfluenceClient {
       },
       version: {
         number: version + 1,
-        message: "Updated via confluence-tui",
+        message: "Updated via rivermeet-tui",
       },
       body: {
         atlas_doc_format: {

@@ -234,7 +234,7 @@ async function main(): Promise<void> {
     console.error("  ATLASSIAN_EMAIL - Your Atlassian account email");
     console.error("  ATLASSIAN_API_TOKEN - Your Atlassian API token");
     console.error(
-      "\nOr create a config file at ~/.config/confluence-tui/config.json"
+      "\nOr create a config file at ~/.config/rivermeet-tui/config.json"
     );
     console.error(`\nLog file: ${logger.getLogFile()}`);
     process.exit(1);

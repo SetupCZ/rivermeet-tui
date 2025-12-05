@@ -1,4 +1,4 @@
-# Confluence TUI
+# Rivermeet TUI
 
 A terminal user interface for reading and editing Confluence pages, built with [OpenTUI](https://github.com/sst/opentui).
 
@@ -40,7 +40,7 @@ To create an API token, visit: https://id.atlassian.com/manage-profile/security/
 
 ### Config File (Optional)
 
-Create `~/.config/confluence-tui/config.json`:
+Create `~/.config/rivermeet-tui/config.json`:
 
 ```json
 {
@@ -50,7 +50,7 @@ Create `~/.config/confluence-tui/config.json`:
     "apiToken": "your-api-token"
   },
   "editor": "vim",
-  "cacheDir": "~/.cache/confluence-tui",
+  "cacheDir": "~/.cache/rivermeet-tui",
   "keyBindings": {
     "up": ["k", "up"],
     "down": ["j", "down"],
@@ -144,7 +144,7 @@ Components not yet implemented are rendered as JSON code blocks with a label ind
 
 ## Cache
 
-Markdown files are cached in `~/.cache/confluence-tui/<space-key>/<page-id>.md`. This allows you to:
+Markdown files are cached in `~/.cache/rivermeet-tui/<space-key>/<page-id>.md`. This allows you to:
 
 1. View pages offline
 2. Edit pages in your preferred editor

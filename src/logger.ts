@@ -22,13 +22,13 @@ class Logger {
   private entries: LogEntry[] = [];
 
   constructor() {
-    const logDir = path.join(os.homedir(), ".cache", "confluence-tui", "logs");
+    const logDir = path.join(os.homedir(), ".cache", "rivermeet-tui", "logs");
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
     }
 
     const date = new Date().toISOString().split("T")[0];
-    this.logFile = path.join(logDir, `confluence-tui-${date}.log`);
+    this.logFile = path.join(logDir, `rivermeet-tui-${date}.log`);
     this.logLevel = process.env.LOG_LEVEL
       ? LogLevel[process.env.LOG_LEVEL as keyof typeof LogLevel] ?? LogLevel.INFO
       : LogLevel.DEBUG;

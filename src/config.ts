@@ -30,7 +30,7 @@ const DEFAULT_THEME = {
 function getDefaultConfig(): Config {
   return {
     keyBindings: DEFAULT_KEY_BINDINGS,
-    cacheDir: path.join(os.homedir(), ".cache", "confluence-tui"),
+    cacheDir: path.join(os.homedir(), ".cache", "rivermeet-tui"),
     confluence: {
       baseUrl: Bun.env.ATLASSIAN_BASE_URL || "",
       email: Bun.env.ATLASSIAN_EMAIL || "",
@@ -43,7 +43,7 @@ function getDefaultConfig(): Config {
 
 function getConfigPath(): string {
   const xdgConfig = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
-  return path.join(xdgConfig, "confluence-tui", "config.json");
+  return path.join(xdgConfig, "rivermeet-tui", "config.json");
 }
 
 export function loadConfig(): Config {
