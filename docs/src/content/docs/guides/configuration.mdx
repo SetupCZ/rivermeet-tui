@@ -5,7 +5,19 @@ description: Configure Rivermeet TUI with a JSON config file
 
 import { Aside, FileTree } from '@astrojs/starlight/components';
 
-For persistent configuration, you can create a JSON config file instead of using environment variables.
+For persistent configuration, you can create a JSON config file. Environment variables will override any values set in the config file.
+
+## Configuration Priority
+
+Rivermeet TUI loads configuration in this order (highest to lowest priority):
+
+1. **Environment variables** (highest priority) - Always override everything
+2. **Config file** - Overrides defaults
+3. **Built-in defaults** (lowest priority)
+
+<Aside type="tip">
+  This means you can set defaults in your config file and override specific values with environment variables when needed (e.g., for different Confluence instances).
+</Aside>
 
 ## Config File Location
 
@@ -75,8 +87,8 @@ Confluence API connection settings:
 | `email` | string | Your Atlassian account email |
 | `apiToken` | string | Your Atlassian API token |
 
-<Aside type="tip">
-  You can use environment variables for credentials and leave this section out of your config file to avoid storing secrets in plain text.
+<Aside type="caution">
+  Storing credentials in the config file means they're saved as plain text. Consider using [environment variables](../environment/) for credentials, which take priority over config file values.
 </Aside>
 
 ### editor
@@ -90,6 +102,10 @@ The text editor to use when pressing `i` to edit a page:
 ```
 
 Common values: `vim`, `nvim`, `nano`, `code --wait`
+
+<Aside type="note">
+  The `EDITOR` environment variable takes priority over this setting.
+</Aside>
 
 ### cacheDir
 

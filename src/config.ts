@@ -27,18 +27,48 @@ const DEFAULT_THEME = {
   warning: "#e0af68",
 };
 
+/**
+ * Get built-in default configuration
+ */
 function getDefaultConfig(): Config {
   return {
     keyBindings: DEFAULT_KEY_BINDINGS,
     cacheDir: path.join(os.homedir(), ".cache", "rivermeet-tui"),
     confluence: {
-      baseUrl: Bun.env.ATLASSIAN_BASE_URL || "",
-      email: Bun.env.ATLASSIAN_EMAIL || "",
-      apiToken: Bun.env.ATLASSIAN_API_TOKEN || "",
+      baseUrl: "",
+      email: "",
+      apiToken: "",
     },
-    editor: Bun.env.EDITOR || "vim",
+    editor: "vim",
     theme: DEFAULT_THEME,
   };
+}
+
+/**
+ * Get configuration from environment variables
+ */
+function getEnvConfig(): Partial<Config> {
+  const envConfig: Partial<Config> = {};
+
+  // Confluence settings from env
+  const baseUrl = Bun.env.ATLASSIAN_BASE_URL;
+  const email = Bun.env.ATLASSIAN_EMAIL;
+  const apiToken = Bun.env.ATLASSIAN_API_TOKEN;
+
+  if (baseUrl || email || apiToken) {
+    envConfig.confluence = {
+      baseUrl: baseUrl || "",
+      email: email || "",
+      apiToken: apiToken || "",
+    };
+  }
+
+  // Editor from env
+  if (Bun.env.EDITOR) {
+    envConfig.editor = Bun.env.EDITOR;
+  }
+
+  return envConfig;
 }
 
 function getConfigPath(): string {
@@ -46,20 +76,39 @@ function getConfigPath(): string {
   return path.join(xdgConfig, "rivermeet-tui", "config.json");
 }
 
-export function loadConfig(): Config {
-  const config = getDefaultConfig();
+/**
+ * Load configuration from file
+ */
+function loadFileConfig(): Partial<Config> {
   const configPath = getConfigPath();
 
   if (fs.existsSync(configPath)) {
     try {
-      const userConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      return mergeConfig(config, userConfig);
+      return JSON.parse(fs.readFileSync(configPath, "utf-8"));
     } catch (error) {
       console.error(`Failed to load config from ${configPath}:`, error);
     }
   }
 
-  return config;
+  return {};
+}
+
+/**
+ * Load configuration with priority:
+ * 1. Environment variables (highest priority)
+ * 2. Config file
+ * 3. Built-in defaults (lowest priority)
+ */
+export function loadConfig(): Config {
+  const defaults = getDefaultConfig();
+  const fileConfig = loadFileConfig();
+  const envConfig = getEnvConfig();
+
+  // Merge: defaults <- fileConfig <- envConfig
+  const withFileConfig = mergeConfig(defaults, fileConfig);
+  const finalConfig = mergeConfig(withFileConfig, envConfig);
+
+  return finalConfig;
 }
 
 function mergeConfig(base: Config, override: Partial<Config>): Config {

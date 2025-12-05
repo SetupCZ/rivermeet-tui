@@ -64,8 +64,12 @@ export EDITOR="vim"  # Default
 
 ## Priority
 
-Environment variables are overridden by values in the [config file](../configuration/). The priority order is:
+Environment variables take precedence over the [config file](../configuration/). This allows you to override config file settings without modifying them. The priority order is:
 
-1. Config file values (highest priority)
-2. Environment variables
+1. Environment variables (highest priority)
+2. Config file values
 3. Built-in defaults (lowest priority)
+
+<Aside type="tip">
+  This priority order makes it easy to temporarily override settings for testing or CI/CD environments without changing your config file.
+</Aside>
