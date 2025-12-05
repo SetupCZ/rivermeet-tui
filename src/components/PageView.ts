@@ -12,8 +12,7 @@ import * as fs from "fs";
 import type {ADFDocument, ADFNode, Config, ReadViewNode, TreeNode} from "../types";
 import {matchesKey} from "../config";
 import {container, TOKENS} from "../di/container";
-import {createComponentRegistry, createRenderContext,} from "../markdown-components";
-import {parseMarkdownToADF} from "../markdown-parser";
+import {createComponentRegistry, createRenderContext, parseMarkdownToADF,} from "../markdown-components";
 import {logger} from "../logger";
 import type {HelpEntry, NavigableComponent, NavigationHelp} from "./NavigationHelp";
 import {ConfluenceClient} from "../confluence-client";
@@ -892,9 +891,9 @@ export class PageView implements NavigableComponent {
       const adf = parseMarkdownToADF(editedMarkdown);
       const adfString = JSON.stringify(adf);
 
-      logger.debug("Calling updatePage", { 
-        pageId, 
-        title, 
+      logger.debug("Calling updatePage", {
+        pageId,
+        title,
         currentVersion,
         spaceKey,
         adfLength: adfString.length,
@@ -930,7 +929,7 @@ export class PageView implements NavigableComponent {
 
       // Update status after reload to show regular controls
       this.updateStatus(`Published successfully! Viewing: ${title}`);
-      
+
       // Refresh navigation help to show regular controls
       this.navigationHelp.refreshLocalHelp();
     } catch (error) {
@@ -955,7 +954,7 @@ export class PageView implements NavigableComponent {
 
     // Write original markdown back to the cache file
     const markdownPath = this.cache.getMarkdownPath_public(spaceKey, pageId);
-    
+
     try {
       fs.writeFileSync(markdownPath, originalMarkdown);
 

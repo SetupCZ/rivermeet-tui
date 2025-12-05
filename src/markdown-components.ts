@@ -1,10 +1,156 @@
 import type {
+  ADFDocument,
   ADFNode,
   MarkdownComponent,
-  RenderContext,
+  ParseContext,
+  ParseResult,
   ReadViewNode,
+  RenderContext,
 } from "./types";
-import { logger } from './logger.ts'
+import {logger} from './logger.ts'
+
+// ============================================================================
+// Inline Parsing Utilities
+// ============================================================================
+
+interface InlineMatchResult {
+  before: string;
+  node: ADFNode;
+  after: string;
+}
+
+/**
+ * Try to match inline patterns (bold, italic, code, links, etc.)
+ */
+function matchInlinePattern(text: string): InlineMatchResult | null {
+  // Inline code (`code`)
+  const codeMatch = text.match(/^(.*?)`([^`]+)`(.*)$/s);
+  if (codeMatch) {
+    return {
+      before: codeMatch[1] || "",
+      node: {
+        type: "text",
+        text: codeMatch[2] || "",
+        marks: [{ type: "code" }],
+      },
+      after: codeMatch[3] || "",
+    };
+  }
+
+  // Bold + Italic (***text*** or ___text___)
+  const boldItalicMatch = text.match(/^(.*?)\*\*\*(.+?)\*\*\*(.*)$/s) ||
+    text.match(/^(.*?)___(.+?)___(.*)$/s);
+  if (boldItalicMatch) {
+    return {
+      before: boldItalicMatch[1] || "",
+      node: {
+        type: "text",
+        text: boldItalicMatch[2] || "",
+        marks: [{ type: "strong" }, { type: "em" }],
+      },
+      after: boldItalicMatch[3] || "",
+    };
+  }
+
+  // Bold (**text** or __text__)
+  const boldMatch = text.match(/^(.*?)\*\*(.+?)\*\*(.*)$/s) ||
+    text.match(/^(.*?)__(.+?)__(.*)$/s);
+  if (boldMatch) {
+    return {
+      before: boldMatch[1] || "",
+      node: {
+        type: "text",
+        text: boldMatch[2] || "",
+        marks: [{ type: "strong" }],
+      },
+      after: boldMatch[3] || "",
+    };
+  }
+
+  // Italic (*text* or _text_) - be careful not to match ** or __
+  const italicMatch = text.match(/^(.*?)(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)(.*)$/s) ||
+    text.match(/^(.*?)(?<!_)_(?!_)(.+?)(?<!_)_(?!_)(.*)$/s);
+  if (italicMatch) {
+    return {
+      before: italicMatch[1] || "",
+      node: {
+        type: "text",
+        text: italicMatch[2] || "",
+        marks: [{ type: "em" }],
+      },
+      after: italicMatch[3] || "",
+    };
+  }
+
+  // Strikethrough (~~text~~)
+  const strikeMatch = text.match(/^(.*?)~~(.+?)~~(.*)$/s);
+  if (strikeMatch) {
+    return {
+      before: strikeMatch[1] || "",
+      node: {
+        type: "text",
+        text: strikeMatch[2] || "",
+        marks: [{ type: "strike" }],
+      },
+      after: strikeMatch[3] || "",
+    };
+  }
+
+  // Link ([text](url))
+  const linkMatch = text.match(/^(.*?)\[([^\]]+)\]\(([^)]+)\)(.*)$/s);
+  if (linkMatch) {
+    return {
+      before: linkMatch[1] || "",
+      node: {
+        type: "text",
+        text: linkMatch[2] || "",
+        marks: [{ type: "link", attrs: { href: linkMatch[3] || "" } }],
+      },
+      after: linkMatch[4] || "",
+    };
+  }
+
+  // Hard break (two spaces at end of line or explicit \n)
+  const hardBreakMatch = text.match(/^(.*?)  \n(.*)$/s);
+  if (hardBreakMatch) {
+    return {
+      before: hardBreakMatch[1] || "",
+      node: { type: "hardBreak" },
+      after: hardBreakMatch[2] || "",
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Parse inline content (text with marks like bold, italic, code, links)
+ */
+export function parseInlineContent(text: string): ADFNode[] {
+  if (!text || text.trim() === "") {
+    return [];
+  }
+
+  const nodes: ADFNode[] = [];
+  let remaining = text;
+
+  while (remaining.length > 0) {
+    const result = matchInlinePattern(remaining);
+
+    if (result) {
+      if (result.before) {
+        nodes.push({ type: "text", text: result.before });
+      }
+      nodes.push(result.node);
+      remaining = result.after;
+    } else {
+      nodes.push({ type: "text", text: remaining });
+      break;
+    }
+  }
+
+  return nodes;
+}
 
 // Base class for markdown components
 abstract class BaseMarkdownComponent implements MarkdownComponent {
@@ -48,11 +194,11 @@ abstract class BaseMarkdownComponent implements MarkdownComponent {
 }
 
 // Helper function to render unknown components as JSON codeblocks
-function renderUnknown(node: ADFNode): string {
+export function renderUnknown(node: ADFNode): string {
   return `\n\`\`\`json [Unknown Component: ${node.type}]\n${JSON.stringify(node, null, 2)}\n\`\`\`\n`;
 }
 
-function createUnknownReadViewNode(node: ADFNode): ReadViewNode {
+export function createUnknownReadViewNode(node: ADFNode): ReadViewNode {
   return {
     content: `[Unknown Component: ${node.type}]\n${JSON.stringify(node, null, 2)}`,
     style: {
@@ -106,6 +252,50 @@ class ParagraphComponent extends BaseMarkdownComponent {
         // { content: "\n", sourceNode: node }, // Single line break after paragraph
       ],
       sourceNode: node,
+    };
+  }
+
+  // Paragraph is the default fallback - it can parse any non-block line
+  canParse(context: ParseContext): boolean {
+    const line = context.lines[context.currentLine] || "";
+    // Don't match empty lines (handled separately) or known block elements
+    return line.trim() !== "";
+  }
+
+  parseFromMarkdown(context: ParseContext): ParseResult {
+    const lines: string[] = [];
+
+    while (context.currentLine < context.lines.length) {
+      const line = context.lines[context.currentLine] || "";
+
+      // Stop at empty line or block-level element
+      if (
+        line.trim() === "" ||
+        line.startsWith("#") ||
+        line.startsWith("```") ||
+        line.startsWith("> ") ||
+        line === ">" ||
+        /^[-*]\s+/.test(line) ||
+        /^\d+\.\s+/.test(line) ||
+        /^-{3,}$/.test(line) ||
+        /^\*{3,}$/.test(line) ||
+        /^_{3,}$/.test(line) ||
+        /^\|.*\|$/.test(line)
+      ) {
+        break;
+      }
+
+      lines.push(line);
+      context.currentLine++;
+    }
+
+    const text = lines.join("\n");
+    return {
+      node: {
+        type: "paragraph",
+        content: parseInlineContent(text),
+      },
+      consumed: true,
     };
   }
 }
@@ -218,6 +408,33 @@ class HeadingComponent extends BaseMarkdownComponent {
       sourceNode: node,
     };
   }
+
+  canParse(context: ParseContext): boolean {
+    const line = context.lines[context.currentLine] || "";
+    return /^#{1,6}\s+/.test(line);
+  }
+
+  parseFromMarkdown(context: ParseContext): ParseResult {
+    const line = context.lines[context.currentLine] || "";
+    const match = line.match(/^(#{1,6})\s+(.*)$/);
+
+    if (!match) {
+      return { node: null, consumed: false };
+    }
+
+    context.currentLine++;
+    const level = match[1]!.length;
+    const text = match[2] || "";
+
+    return {
+      node: {
+        type: "heading",
+        attrs: { level },
+        content: parseInlineContent(text),
+      },
+      consumed: true,
+    };
+  }
 }
 
 // Bullet list component
@@ -240,6 +457,44 @@ class BulletListComponent extends BaseMarkdownComponent {
       content: "",
       children: this.renderChildrenReadView(node.content, newContext),
       sourceNode: node,
+    };
+  }
+
+  canParse(context: ParseContext): boolean {
+    const line = context.lines[context.currentLine] || "";
+    // Match bullet lists but NOT task lists (- [ ] or - [x])
+    return /^[-*]\s+/.test(line) && !/^[-*]\s+\[[ xX]\]/.test(line);
+  }
+
+  parseFromMarkdown(context: ParseContext): ParseResult {
+    const items: ADFNode[] = [];
+
+    while (context.currentLine < context.lines.length) {
+      const line = context.lines[context.currentLine] || "";
+      const match = line.match(/^([-*])\s+(.*)$/);
+
+      if (!match || /^[-*]\s+\[[ xX]\]/.test(line)) break;
+
+      context.currentLine++;
+      const itemContent = match[2] || "";
+
+      items.push({
+        type: "listItem",
+        content: [
+          {
+            type: "paragraph",
+            content: parseInlineContent(itemContent),
+          },
+        ],
+      });
+    }
+
+    return {
+      node: {
+        type: "bulletList",
+        content: items,
+      },
+      consumed: true,
     };
   }
 }
@@ -288,6 +543,43 @@ class OrderedListComponent extends BaseMarkdownComponent {
         return createUnknownReadViewNode(child);
       }),
       sourceNode: node,
+    };
+  }
+
+  canParse(context: ParseContext): boolean {
+    const line = context.lines[context.currentLine] || "";
+    return /^\d+\.\s+/.test(line);
+  }
+
+  parseFromMarkdown(context: ParseContext): ParseResult {
+    const items: ADFNode[] = [];
+
+    while (context.currentLine < context.lines.length) {
+      const line = context.lines[context.currentLine] || "";
+      const match = line.match(/^\d+\.\s+(.*)$/);
+
+      if (!match) break;
+
+      context.currentLine++;
+      const itemContent = match[1] || "";
+
+      items.push({
+        type: "listItem",
+        content: [
+          {
+            type: "paragraph",
+            content: parseInlineContent(itemContent),
+          },
+        ],
+      });
+    }
+
+    return {
+      node: {
+        type: "orderedList",
+        content: items,
+      },
+      consumed: true,
     };
   }
 }
@@ -359,6 +651,43 @@ class CodeBlockComponent extends BaseMarkdownComponent {
       sourceNode: node,
     };
   }
+
+  canParse(context: ParseContext): boolean {
+    const line = context.lines[context.currentLine] || "";
+    return line.startsWith("```");
+  }
+
+  parseFromMarkdown(context: ParseContext): ParseResult {
+    const firstLine = context.lines[context.currentLine] || "";
+    const language = firstLine.slice(3).trim();
+    context.currentLine++;
+
+    const codeLines: string[] = [];
+
+    while (context.currentLine < context.lines.length) {
+      const line = context.lines[context.currentLine] || "";
+      if (line.startsWith("```")) {
+        context.currentLine++;
+        break;
+      }
+      codeLines.push(line);
+      context.currentLine++;
+    }
+
+    return {
+      node: {
+        type: "codeBlock",
+        attrs: language ? { language } : undefined,
+        content: [
+          {
+            type: "text",
+            text: codeLines.join("\n"),
+          },
+        ],
+      },
+      consumed: true,
+    };
+  }
 }
 
 // Blockquote component
@@ -386,6 +715,52 @@ class BlockquoteComponent extends BaseMarkdownComponent {
       sourceNode: node,
     };
   }
+
+  canParse(context: ParseContext): boolean {
+    const line = context.lines[context.currentLine] || "";
+    return line.startsWith("> ") || line === ">";
+  }
+
+  parseFromMarkdown(context: ParseContext): ParseResult {
+    const lines: string[] = [];
+
+    while (context.currentLine < context.lines.length) {
+      const line = context.lines[context.currentLine] || "";
+      if (line.startsWith("> ")) {
+        lines.push(line.slice(2));
+        context.currentLine++;
+      } else if (line === ">") {
+        lines.push("");
+        context.currentLine++;
+      } else {
+        break;
+      }
+    }
+
+    // Parse the quoted content recursively
+    const quotedContent = lines.join("\n");
+    const quotedContext: ParseContext = {
+      lines: quotedContent.split("\n"),
+      currentLine: 0,
+      components: context.components,
+    };
+
+    const content: ADFNode[] = [];
+    while (quotedContext.currentLine < quotedContext.lines.length) {
+      const node = parseBlockWithContext(quotedContext);
+      if (node) {
+        content.push(node);
+      }
+    }
+
+    return {
+      node: {
+        type: "blockquote",
+        content: content.length > 0 ? content : [{ type: "paragraph", content: [] }],
+      },
+      consumed: true,
+    };
+  }
 }
 
 // Rule (horizontal line) component
@@ -405,6 +780,19 @@ class RuleComponent extends BaseMarkdownComponent {
       content: "─".repeat(40),
       style: { fg: "#565f89", dim: true },
       sourceNode: node,
+    };
+  }
+
+  canParse(context: ParseContext): boolean {
+    const line = context.lines[context.currentLine] || "";
+    return /^-{3,}$/.test(line) || /^\*{3,}$/.test(line) || /^_{3,}$/.test(line);
+  }
+
+  parseFromMarkdown(context: ParseContext): ParseResult {
+    context.currentLine++;
+    return {
+      node: { type: "rule" },
+      consumed: true,
     };
   }
 }
@@ -565,6 +953,44 @@ class TaskListComponent extends BaseMarkdownComponent {
       sourceNode: node,
     };
   }
+
+  canParse(context: ParseContext): boolean {
+    const line = context.lines[context.currentLine] || "";
+    return /^[-*]\s+\[[ xX]\]\s+/.test(line);
+  }
+
+  parseFromMarkdown(context: ParseContext): ParseResult {
+    const items: ADFNode[] = [];
+
+    while (context.currentLine < context.lines.length) {
+      const line = context.lines[context.currentLine] || "";
+      const match = line.match(/^[-*]\s+\[([ xX])\]\s+(.*)$/);
+
+      if (!match) break;
+
+      context.currentLine++;
+      const checked = match[1]?.toLowerCase() === "x";
+      const itemContent = match[2] || "";
+
+      items.push({
+        type: "taskItem",
+        attrs: {
+          state: checked ? "DONE" : "TODO",
+          localId: crypto.randomUUID(),
+        },
+        content: parseInlineContent(itemContent),
+      });
+    }
+
+    return {
+      node: {
+        type: "taskList",
+        attrs: { localId: crypto.randomUUID() },
+        content: items,
+      },
+      consumed: true,
+    };
+  }
 }
 
 class TaskItemComponent extends BaseMarkdownComponent {
@@ -635,6 +1061,63 @@ class TableComponent extends BaseMarkdownComponent {
       content: "",
       children: this.renderChildrenReadView(node.content, context),
       sourceNode: node,
+    };
+  }
+
+  canParse(context: ParseContext): boolean {
+    const line = context.lines[context.currentLine] || "";
+    return /^\|.*\|$/.test(line);
+  }
+
+  parseFromMarkdown(context: ParseContext): ParseResult {
+    const rows: ADFNode[] = [];
+    let isFirstRow = true;
+
+    while (context.currentLine < context.lines.length) {
+      const line = context.lines[context.currentLine] || "";
+
+      if (!/^\|.*\|$/.test(line)) break;
+
+      // Skip separator line (| --- | --- |)
+      if (/^\|[\s-:|]+\|$/.test(line)) {
+        context.currentLine++;
+        continue;
+      }
+
+      const cells = line
+        .slice(1, -1) // Remove leading and trailing |
+        .split("|")
+        .map((cell) => cell.trim());
+
+      const cellType = isFirstRow ? "tableHeader" : "tableCell";
+
+      rows.push({
+        type: "tableRow",
+        content: cells.map((cellContent) => ({
+          type: cellType,
+          content: [
+            {
+              type: "paragraph",
+              content: parseInlineContent(cellContent),
+            },
+          ],
+        })),
+      });
+
+      isFirstRow = false;
+      context.currentLine++;
+    }
+
+    return {
+      node: {
+        type: "table",
+        attrs: {
+          isNumberColumnEnabled: false,
+          layout: "default",
+        },
+        content: rows,
+      },
+      consumed: true,
     };
   }
 }
@@ -944,4 +1427,83 @@ export function createRenderContext(
   };
 }
 
-export { renderUnknown, createUnknownReadViewNode };
+// ============================================================================
+// Markdown → ADF Parsing
+// ============================================================================
+
+// Order matters! More specific patterns should come before less specific ones.
+// e.g., TaskList (- [ ]) before BulletList (- )
+const parsingComponents = [
+  "codeBlock",    // ```
+  "heading",      // #
+  "rule",         // ---
+  "blockquote",   // >
+  "taskList",     // - [ ] or - [x]
+  "bulletList",   // - or *
+  "orderedList",  // 1.
+  "table",        // |
+  "paragraph",    // default fallback
+];
+
+/**
+ * Parse a block using the component registry
+ */
+function parseBlockWithContext(context: ParseContext): ADFNode | null {
+  const line = context.lines[context.currentLine] || "";
+
+  // Skip empty lines
+  if (line.trim() === "") {
+    context.currentLine++;
+    return null;
+  }
+
+  // Try each parsing component in order
+  for (const componentType of parsingComponents) {
+    const component = context.components.get(componentType);
+    if (component?.canParse?.(context)) {
+      const result = component.parseFromMarkdown!(context);
+      if (result.consumed && result.node) {
+        return result.node;
+      }
+    }
+  }
+
+  // This shouldn't happen if paragraph is in the list, but just in case
+  context.currentLine++;
+  return null;
+}
+
+/**
+ * Create a parse context with the component registry
+ */
+function createParseContext(lines: string[]): ParseContext {
+  return {
+    lines,
+    currentLine: 0,
+    components: createComponentRegistry(),
+  };
+}
+
+/**
+ * Parse markdown text into an ADF document
+ */
+export function parseMarkdownToADF(markdown: string): ADFDocument {
+  const lines = markdown.split("\n");
+  const context = createParseContext(lines);
+
+  const content: ADFNode[] = [];
+
+  while (context.currentLine < context.lines.length) {
+    const node = parseBlockWithContext(context);
+    if (node) {
+      content.push(node);
+    }
+  }
+
+  return {
+    type: "doc",
+    version: 1,
+    content,
+  };
+}
+

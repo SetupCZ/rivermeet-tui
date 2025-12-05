@@ -108,12 +108,37 @@ export interface Config {
   };
 }
 
-// Markdown Component Interface
+// Markdown Parsing Context
+export interface ParseContext {
+  lines: string[];
+  currentLine: number;
+  components: Map<string, MarkdownComponent>;
+}
+
+// Parse result from a component
+export interface ParseResult {
+  node: ADFNode | null;
+  consumed: boolean;  // Whether this component handled the current line(s)
+}
+
+// Markdown Component Interface - Bidirectional conversion
 export interface MarkdownComponent {
   type: string;
+  
+  // ADF → Check if this component can handle the node
   canRender(node: ADFNode): boolean;
+  
+  // ADF → Markdown
   toMarkdown(node: ADFNode, context: RenderContext): string;
+  
+  // ADF → ReadView (for display)
   toReadView(node: ADFNode, context: RenderContext): ReadViewNode;
+  
+  // Markdown → Check if this component can parse the current line
+  canParse?(context: ParseContext): boolean;
+  
+  // Markdown → ADF
+  parseFromMarkdown?(context: ParseContext): ParseResult;
 }
 
 export interface RenderContext {
@@ -122,15 +147,6 @@ export interface RenderContext {
   orderedListCounter?: number;
   inCodeBlock: boolean;
   components: Map<string, MarkdownComponent>;
-}
-
-// Markdown parsing types
-export interface MarkdownToken {
-  type: string;
-  content: string;
-  attrs?: Record<string, unknown>;
-  children?: MarkdownToken[];
-  marks?: string[];
 }
 
 export interface ReadViewNode {
