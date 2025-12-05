@@ -57,10 +57,27 @@ $XDG_CONFIG_HOME/rivermeet-tui/config.json
     "right": ["l", "right"],
     "select": ["return", "enter"],
     "back": ["escape", "backspace"],
+    "halfPageUp": ["ctrl+u"],
+    "halfPageDown": ["ctrl+d"],
+    "lineStart": ["0"],
+    "lineEnd": ["$"],
+    "documentTop": ["g"],
+    "documentBottom": ["G"],
+    "wordForward": ["w"],
+    "wordBackward": ["b"],
     "edit": ["i"],
     "quit": ["q"],
     "search": ["/"],
-    "refresh": ["r"]
+    "searchNext": ["n"],
+    "searchPrev": ["N"],
+    "refresh": ["r"],
+    "publish": ["p"],
+    "yank": ["y"],
+    "visualChar": ["v"],
+    "visualLine": ["V"],
+    "confirm": ["y"],
+    "cancel": ["n", "escape"],
+    "debug": ["d"]
   },
   "theme": {
     "primary": "#7aa2f7",
@@ -131,7 +148,16 @@ Customize keyboard shortcuts. Each action can have multiple keys:
 }
 ```
 
+Key binding format:
+- Simple keys: `"k"`, `"/"`, `"0"`
+- Arrow keys: `"up"`, `"down"`, `"left"`, `"right"`
+- Special keys: `"return"`, `"enter"`, `"escape"`, `"backspace"`
+- Modifier combinations: `"ctrl+u"`, `"ctrl+d"`
+- Shift keys: Use uppercase letter `"G"` or `"shift+g"`
+
 Available actions:
+
+**Navigation:**
 
 | Action | Default Keys | Description |
 |--------|--------------|-------------|
@@ -140,11 +166,38 @@ Available actions:
 | `left` | `h`, `left` | Move left / collapse |
 | `right` | `l`, `right` | Move right / expand |
 | `select` | `return`, `enter` | Select / open |
-| `back` | `escape`, `backspace` | Go back |
-| `edit` | `i` | Edit page |
+| `back` | `escape`, `backspace` | Go back / cancel |
+
+**Page Navigation:**
+
+| Action | Default Keys | Description |
+|--------|--------------|-------------|
+| `halfPageUp` | `ctrl+u` | Scroll half page up |
+| `halfPageDown` | `ctrl+d` | Scroll half page down |
+| `lineStart` | `0` | Go to start of line |
+| `lineEnd` | `$` | Go to end of line |
+| `documentTop` | `g` | Go to top of document |
+| `documentBottom` | `G` | Go to bottom of document |
+| `wordForward` | `w` | Move forward one word |
+| `wordBackward` | `b` | Move backward one word |
+
+**Actions:**
+
+| Action | Default Keys | Description |
+|--------|--------------|-------------|
+| `edit` | `i` | Edit page in editor |
 | `quit` | `q` | Quit application |
 | `search` | `/` | Start search |
+| `searchNext` | `n` | Jump to next search match |
+| `searchPrev` | `N` | Jump to previous search match |
 | `refresh` | `r` | Refresh spaces |
+| `publish` | `p` | Publish pending changes |
+| `yank` | `y` | Copy selection/line to clipboard |
+| `visualChar` | `v` | Enter character visual mode |
+| `visualLine` | `V` | Enter line visual mode |
+| `confirm` | `y` | Confirm action |
+| `cancel` | `n`, `escape` | Cancel action |
+| `debug` | `d` | Toggle debug panel (debug mode only) |
 
 ### theme
 

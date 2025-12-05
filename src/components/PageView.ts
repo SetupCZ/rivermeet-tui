@@ -10,7 +10,7 @@ import {
 } from "@opentui/core";
 import * as fs from "fs";
 import type {ADFDocument, ADFNode, Config, ReadViewNode, TreeNode} from "../types";
-import {matchesKey} from "../config";
+import {KeyBindingManager} from "../config";
 import {container, TOKENS} from "../di/container";
 import {createComponentRegistry, createRenderContext, parseMarkdownToADF,} from "../markdown-components";
 import {logger} from "../logger";
@@ -64,6 +64,7 @@ interface PendingChangesState {
 export class PageView implements NavigableComponent {
   private renderer: CliRenderer;
   private config: Config;
+  private keys: KeyBindingManager;
   private client: ConfluenceClient;
   private cache: PageCache;
   private events: PageViewEvents;
@@ -108,6 +109,7 @@ export class PageView implements NavigableComponent {
   constructor(events: PageViewEvents = {}) {
     this.renderer = container.resolve<CliRenderer>(TOKENS.Renderer);
     this.config = container.resolve<Config>(TOKENS.Config);
+    this.keys = container.resolve<KeyBindingManager>(TOKENS.KeyBindings);
     this.client = container.resolve<ConfluenceClient>(TOKENS.Client);
     this.cache = container.resolve<PageCache>(TOKENS.Cache);
     this.navigationHelp = container.resolve<NavigationHelp>(TOKENS.NavigationHelp);
@@ -208,8 +210,6 @@ export class PageView implements NavigableComponent {
   }
 
   handleKeypressInternal(key: KeyEvent): boolean {
-    const {keyBindings} = this.config;
-
     logger.debug("handleKeypressInternal", {
       keyName: key.name,
       keySequence: key.sequence,
@@ -228,7 +228,7 @@ export class PageView implements NavigableComponent {
     }
 
     // Escape - cancel selection, clear search, discard pending changes, or go back
-    if (matchesKey(key, keyBindings.back)) {
+    if (this.keys.matches("back", key)) {
       if (this.visualMode !== "none") {
         this.cancelSelection();
         return true;
@@ -246,7 +246,7 @@ export class PageView implements NavigableComponent {
     }
 
     // Publish changes with 'p' - now starts confirmation
-    if (key.name === "p" && !key.ctrl && !key.shift) {
+    if (this.keys.matches("publish", key)) {
       if (this.pendingChanges.hasPendingChanges) {
         this.startPublishConfirmation();
         return true;
@@ -254,25 +254,25 @@ export class PageView implements NavigableComponent {
     }
 
     // Start search with /
-    if (key.sequence === "/" || key.name === "/") {
+    if (this.keys.matches("search", key)) {
       this.startSearch();
       return true;
     }
 
     // Next search match with n
-    if (key.name === "n" && !key.shift && !key.ctrl) {
+    if (this.keys.matches("searchNext", key)) {
       this.jumpToNextMatch();
       return true;
     }
 
     // Previous search match with N
-    if (key.name === "n" && key.shift) {
+    if (this.keys.matches("searchPrev", key)) {
       this.jumpToPreviousMatch();
       return true;
     }
 
     // Yank (copy) selection or current line
-    if (key.name === "y") {
+    if (this.keys.matches("yank", key)) {
       if (this.visualMode !== "none") {
         this.yankSelection();
       } else {
@@ -282,7 +282,7 @@ export class PageView implements NavigableComponent {
     }
 
     // Visual mode (character)
-    if (key.name === "v" && !key.shift) {
+    if (this.keys.matches("visualChar", key)) {
       if (this.visualMode === "char") {
         this.cancelSelection();
       } else {
@@ -292,7 +292,7 @@ export class PageView implements NavigableComponent {
     }
 
     // Visual line mode
-    if (key.name === "v" && key.shift) {
+    if (this.keys.matches("visualLine", key)) {
       if (this.visualMode === "line") {
         this.cancelSelection();
       } else {
@@ -302,65 +302,65 @@ export class PageView implements NavigableComponent {
     }
 
     // Edit mode
-    if (matchesKey(key, keyBindings.edit)) {
+    if (this.keys.matches("edit", key)) {
       this.openEditor();
       return true;
     }
 
     // Movement: h (left)
-    if (key.name === "h" && !key.ctrl) {
+    if (this.keys.matches("left", key)) {
       this.moveCursor(0, -1);
       return true;
     }
 
     // Movement: l (right)
-    if (key.name === "l" && !key.ctrl) {
+    if (this.keys.matches("right", key)) {
       this.moveCursor(0, 1);
       return true;
     }
 
     // Movement: k (up)
-    if (matchesKey(key, keyBindings.up)) {
+    if (this.keys.matches("up", key)) {
       this.moveCursor(-1, 0);
       return true;
     }
 
     // Movement: j (down)
-    if (matchesKey(key, keyBindings.down)) {
+    if (this.keys.matches("down", key)) {
       this.moveCursor(1, 0);
       return true;
     }
 
     // Half page up/down with ctrl+u/d
-    if (key.ctrl && key.name === "u") {
+    if (this.keys.matches("halfPageUp", key)) {
       const halfPage = Math.floor(this.renderer.terminalHeight / 2);
       this.moveCursor(-halfPage, 0);
       return true;
     }
 
-    if (key.ctrl && key.name === "d") {
+    if (this.keys.matches("halfPageDown", key)) {
       const halfPage = Math.floor(this.renderer.terminalHeight / 2);
       this.moveCursor(halfPage, 0);
       return true;
     }
 
     // Go to start of line with 0
-    if (key.name === "0") {
+    if (this.keys.matches("lineStart", key)) {
       this.cursorCol = 0;
       this.updateDisplay();
       return true;
     }
 
     // Go to end of line with $
-    if (key.shift && key.name === "4") { // $ is shift+4
+    if (this.keys.matches("lineEnd", key)) {
       const lineContent = this.readViewLines[this.cursorLine]?.content || "";
       this.cursorCol = Math.max(0, lineContent.length - 1);
       this.updateDisplay();
       return true;
     }
 
-    // Go to top with gg
-    if (key.name === "g" && !key.shift) {
+    // Go to top with g
+    if (this.keys.matches("documentTop", key)) {
       this.cursorLine = 0;
       this.cursorCol = 0;
       this.updateDisplay();
@@ -368,7 +368,7 @@ export class PageView implements NavigableComponent {
     }
 
     // Go to bottom with G
-    if (key.shift && key.name === "g") {
+    if (this.keys.matches("documentBottom", key)) {
       this.cursorLine = Math.max(0, this.readViewLines.length - 1);
       this.cursorCol = 0;
       this.updateDisplay();
@@ -376,13 +376,13 @@ export class PageView implements NavigableComponent {
     }
 
     // Word forward with w
-    if (key.name === "w" && !key.ctrl) {
+    if (this.keys.matches("wordForward", key)) {
       this.moveWordForward();
       return true;
     }
 
     // Word backward with b
-    if (key.name === "b" && !key.ctrl) {
+    if (this.keys.matches("wordBackward", key)) {
       this.moveWordBackward();
       return true;
     }
@@ -396,42 +396,42 @@ export class PageView implements NavigableComponent {
   getHelpEntries(): HelpEntry[] {
     if (this.search.isSearching) {
       return [
-        {key: "Enter", description: "search"},
-        {key: "Esc", description: "cancel"},
+        {key: this.keys.getLabel("select"), description: "search"},
+        {key: this.keys.getLabel("back"), description: "cancel"},
       ];
     }
     if (this.pendingChanges.confirmingPublish) {
       return [
-        {key: "y", description: "confirm"},
-        {key: "n", description: "cancel"},
+        {key: this.keys.getLabel("confirm"), description: "confirm"},
+        {key: this.keys.getLabel("cancel"), description: "cancel"},
       ];
     }
     if (this.visualMode !== "none") {
       return [
-        {key: "hjkl", description: "move"},
-        {key: "y", description: "yank"},
-        {key: "Esc", description: "cancel"},
+        {key: this.keys.getCombinedLabel(["left", "down", "up", "right"]), description: "move"},
+        {key: this.keys.getLabel("yank"), description: "yank"},
+        {key: this.keys.getLabel("back"), description: "cancel"},
       ];
     }
     if (this.pendingChanges.hasPendingChanges) {
       return [
-        {key: "p", description: "publish"},
-        {key: "Esc", description: "discard"},
-        {key: "i", description: "edit"},
+        {key: this.keys.getLabel("publish"), description: "publish"},
+        {key: this.keys.getLabel("back"), description: "discard"},
+        {key: this.keys.getLabel("edit"), description: "edit"},
       ];
     }
     if (this.search.matches.length > 0) {
       return [
-        {key: "n/N", description: "next/prev"},
-        {key: "Esc", description: "back"},
+        {key: this.keys.getCombinedLabel(["searchNext", "searchPrev"]), description: "next/prev"},
+        {key: this.keys.getLabel("back"), description: "back"},
       ];
     }
     return [
-      {key: "hjkl", description: "move"},
-      {key: "/", description: "search"},
-      {key: "v/V", description: "visual"},
-      {key: "i", description: "edit"},
-      {key: "Esc", description: "back"},
+      {key: this.keys.getCombinedLabel(["left", "down", "up", "right"]), description: "move"},
+      {key: this.keys.getLabel("search"), description: "search"},
+      {key: this.keys.getCombinedLabel(["visualChar", "visualLine"]), description: "visual"},
+      {key: this.keys.getLabel("edit"), description: "edit"},
+      {key: this.keys.getLabel("back"), description: "back"},
     ];
   }
 
@@ -851,14 +851,14 @@ export class PageView implements NavigableComponent {
    */
   private handlePublishConfirmation(key: KeyEvent): boolean {
     // 'y' or 'Y' - confirm publish
-    if (key.name === "y") {
+    if (this.keys.matches("confirm", key)) {
       this.pendingChanges.confirmingPublish = false;
       this.publishChanges();
       return true;
     }
 
     // 'n' or 'N' or Escape - cancel confirmation
-    if (key.name === "n" || key.name === "escape") {
+    if (this.keys.matches("cancel", key)) {
       this.pendingChanges.confirmingPublish = false;
       this.updateStatus("[MODIFIED] Press 'p' to publish, 'Esc' to discard");
       return true;
