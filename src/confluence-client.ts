@@ -53,7 +53,11 @@ export class ConfluenceClient {
     }
     
     const url = `${this.baseUrl}${endpoint}`;
-    logger.debug("Making request", { url, method: options.method || "GET" });
+    logger.debug("Making request", { 
+      url, 
+      method: options.method || "GET",
+      bodyPreview: options.body ? String(options.body).substring(0, 500) : undefined
+    });
     
     try {
       const response = await fetch(url, {
@@ -274,27 +278,90 @@ export class ConfluenceClient {
     title: string,
     body: string,
     version: number,
-    bodyFormat: "storage" | "atlas_doc_format" = "atlas_doc_format"
+    bodyFormat: "storage" | "atlas_doc_format" = "atlas_doc_format",
+    spaceKey?: string
   ): Promise<ConfluencePage> {
-    const endpoint = `/wiki/api/v2/pages/${pageId}`;
+    // Use REST API v1 for updating pages
+    const endpoint = `/wiki/rest/api/content/${pageId}`;
+
+    // If no spaceKey provided, fetch it from the page metadata
+    let resolvedSpaceKey = spaceKey;
+    if (!resolvedSpaceKey) {
+      const metadata = await this.getPageMetadata(pageId);
+      resolvedSpaceKey = metadata.spaceKey;
+    }
 
     const payload = {
       id: pageId,
-      status: "current",
+      type: "page",
       title,
-      body: {
-        representation: bodyFormat,
-        value: body,
+      space: {
+        key: resolvedSpaceKey,
       },
       version: {
         number: version + 1,
+        message: "Updated via confluence-tui",
+      },
+      body: {
+        atlas_doc_format: {
+          value: body,
+          representation: bodyFormat,
+        },
       },
     };
 
-    return this.request<ConfluencePage>(endpoint, {
+    logger.info("updatePage request (v1 API)", { 
+      endpoint, 
+      fullUrl: `${this.baseUrl}${endpoint}`,
+      pageId, 
+      title, 
+      spaceKey: resolvedSpaceKey,
+      currentVersion: version,
+      newVersion: version + 1,
+      bodyFormat,
+    });
+
+    const response = await this.request<any>(endpoint, {
       method: "PUT",
       body: JSON.stringify(payload),
     });
+
+    // Convert v1 response to our ConfluencePage type
+    return {
+      id: response.id,
+      title: response.title,
+      spaceId: response.space?.key || "",
+      status: response.status as "current" | "draft" | "archived",
+      body: {
+        ...(response.body?.storage && {
+          storage: {
+            value: response.body.storage.value,
+            representation: "storage" as const,
+          },
+        }),
+        ...(response.body?.atlas_doc_format && {
+          atlas_doc_format: {
+            value: response.body.atlas_doc_format.value,
+            representation: "atlas_doc_format" as const,
+          },
+        }),
+      },
+      version: response.version,
+    };
+  }
+
+  /**
+   * Get page metadata (title, space key, version)
+   */
+  async getPageMetadata(pageId: string): Promise<{ title: string; spaceKey: string; currentVersion: number }> {
+    const endpoint = `/wiki/rest/api/content/${pageId}?expand=space,version`;
+    const response = await this.request<any>(endpoint);
+    
+    return {
+      title: response.title,
+      spaceKey: response.space.key,
+      currentVersion: response.version.number,
+    };
   }
 
   parseADF(page: ConfluencePage): ADFDocument | null {

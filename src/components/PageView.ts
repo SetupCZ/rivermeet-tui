@@ -8,10 +8,12 @@ import {
   t,
   TextRenderable,
 } from "@opentui/core";
+import * as fs from "fs";
 import type {ADFDocument, ADFNode, Config, ReadViewNode, TreeNode} from "../types";
 import {matchesKey} from "../config";
 import {container, TOKENS} from "../di/container";
 import {createComponentRegistry, createRenderContext,} from "../markdown-components";
+import {parseMarkdownToADF} from "../markdown-parser";
 import {logger} from "../logger";
 import type {HelpEntry, NavigableComponent, NavigationHelp} from "./NavigationHelp";
 import {ConfluenceClient} from "../confluence-client";
@@ -53,6 +55,13 @@ interface SearchState {
   inputBuffer: string;
 }
 
+interface PendingChangesState {
+  hasPendingChanges: boolean;
+  originalMarkdown: string;
+  editedMarkdown: string;
+  confirmingPublish: boolean;
+}
+
 export class PageView implements NavigableComponent {
   private renderer: CliRenderer;
   private config: Config;
@@ -87,6 +96,14 @@ export class PageView implements NavigableComponent {
     currentMatchIndex: -1,
     isSearching: false,
     inputBuffer: "",
+  };
+
+  // Pending changes state
+  private pendingChanges: PendingChangesState = {
+    hasPendingChanges: false,
+    originalMarkdown: "",
+    editedMarkdown: "",
+    confirmingPublish: false,
   };
 
   constructor(events: PageViewEvents = {}) {
@@ -163,10 +180,10 @@ export class PageView implements NavigableComponent {
   }
 
   /**
-   * Returns true when in search mode to prevent global handlers from intercepting keys
+   * Returns true when in search mode or confirming publish to prevent global handlers from intercepting keys
    */
   wantsExclusiveInput(): boolean {
-    return this.search.isSearching;
+    return this.search.isSearching || this.pendingChanges.confirmingPublish;
   }
 
   /**
@@ -197,7 +214,8 @@ export class PageView implements NavigableComponent {
     logger.debug("handleKeypressInternal", {
       keyName: key.name,
       keySequence: key.sequence,
-      isSearching: this.search.isSearching
+      isSearching: this.search.isSearching,
+      confirmingPublish: this.pendingChanges.confirmingPublish
     });
 
     // Handle search input mode
@@ -205,7 +223,12 @@ export class PageView implements NavigableComponent {
       return this.handleSearchInput(key);
     }
 
-    // Escape - cancel selection, clear search, or go back
+    // Handle publish confirmation mode
+    if (this.pendingChanges.confirmingPublish) {
+      return this.handlePublishConfirmation(key);
+    }
+
+    // Escape - cancel selection, clear search, discard pending changes, or go back
     if (matchesKey(key, keyBindings.back)) {
       if (this.visualMode !== "none") {
         this.cancelSelection();
@@ -215,8 +238,20 @@ export class PageView implements NavigableComponent {
         this.clearSearch();
         return true;
       }
+      if (this.pendingChanges.hasPendingChanges) {
+        this.discardChanges();
+        return true;
+      }
       this.events.onBack?.();
       return true;
+    }
+
+    // Publish changes with 'p' - now starts confirmation
+    if (key.name === "p" && !key.ctrl && !key.shift) {
+      if (this.pendingChanges.hasPendingChanges) {
+        this.startPublishConfirmation();
+        return true;
+      }
     }
 
     // Start search with /
@@ -366,11 +401,24 @@ export class PageView implements NavigableComponent {
         {key: "Esc", description: "cancel"},
       ];
     }
+    if (this.pendingChanges.confirmingPublish) {
+      return [
+        {key: "y", description: "confirm"},
+        {key: "n", description: "cancel"},
+      ];
+    }
     if (this.visualMode !== "none") {
       return [
         {key: "hjkl", description: "move"},
         {key: "y", description: "yank"},
         {key: "Esc", description: "cancel"},
+      ];
+    }
+    if (this.pendingChanges.hasPendingChanges) {
+      return [
+        {key: "p", description: "publish"},
+        {key: "Esc", description: "discard"},
+        {key: "i", description: "edit"},
       ];
     }
     if (this.search.matches.length > 0) {
@@ -789,6 +837,153 @@ export class PageView implements NavigableComponent {
     return this.search.matches.filter((m) => m.line === lineIdx);
   }
 
+  // --- Publish/Discard ---
+
+  /**
+   * Start publish confirmation - ask user for y/n
+   */
+  private startPublishConfirmation(): void {
+    this.pendingChanges.confirmingPublish = true;
+    this.updateStatus("Publish changes? (y/n)");
+  }
+
+  /**
+   * Handle y/n input during publish confirmation
+   */
+  private handlePublishConfirmation(key: KeyEvent): boolean {
+    // 'y' or 'Y' - confirm publish
+    if (key.name === "y") {
+      this.pendingChanges.confirmingPublish = false;
+      this.publishChanges();
+      return true;
+    }
+
+    // 'n' or 'N' or Escape - cancel confirmation
+    if (key.name === "n" || key.name === "escape") {
+      this.pendingChanges.confirmingPublish = false;
+      this.updateStatus("[MODIFIED] Press 'p' to publish, 'Esc' to discard");
+      return true;
+    }
+
+    // Ignore other keys during confirmation
+    return true;
+  }
+
+  /**
+   * Publish pending changes to Confluence
+   */
+  private async publishChanges(): Promise<void> {
+    if (!this.currentPage || !this.pendingChanges.hasPendingChanges) return;
+
+    const { pageId, title, spaceKey } = this.currentPage;
+    const { editedMarkdown } = this.pendingChanges;
+
+    logger.debug("Publishing changes", { pageId, title, spaceKey });
+    this.updateStatus("Publishing changes...");
+
+    try {
+      // Fetch the current version from Confluence (it may have changed since we cached)
+      const metadata = await this.client.getPageMetadata(pageId);
+      const currentVersion = metadata.currentVersion;
+
+      logger.debug("Fetched current version", { pageId, currentVersion });
+
+      // Parse markdown to ADF and publish using atlas_doc_format
+      const adf = parseMarkdownToADF(editedMarkdown);
+      const adfString = JSON.stringify(adf);
+
+      logger.debug("Calling updatePage", { 
+        pageId, 
+        title, 
+        currentVersion,
+        spaceKey,
+        adfLength: adfString.length,
+        adfPreview: adfString.substring(0, 200)
+      });
+
+      await this.client.updatePage(
+        pageId,
+        title,
+        adfString,
+        currentVersion,
+        "atlas_doc_format",
+        spaceKey
+      );
+
+      // Clear pending changes
+      this.pendingChanges = {
+        hasPendingChanges: false,
+        originalMarkdown: "",
+        editedMarkdown: "",
+        confirmingPublish: false,
+      };
+
+      // Clear cache to force reload with new version
+      this.cache.clearPageCache(spaceKey, pageId);
+
+      // Reload the page to get the new version
+      await this.loadPage({
+        pageId,
+        spaceKey,
+        label: title,
+      });
+
+      // Update status after reload to show regular controls
+      this.updateStatus(`Published successfully! Viewing: ${title}`);
+      
+      // Refresh navigation help to show regular controls
+      this.navigationHelp.refreshLocalHelp();
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.updateStatus(`Publish failed: ${errorMsg}`);
+      // Reset confirmingPublish on error so user can try again
+      this.pendingChanges.confirmingPublish = false;
+      // Refresh navigation help to allow retry
+      this.navigationHelp.refreshLocalHelp();
+      logger.error("Publish failed", { error: errorMsg, pageId, title });
+    }
+  }
+
+  /**
+   * Discard pending changes and restore original content
+   */
+  private discardChanges(): void {
+    if (!this.currentPage || !this.pendingChanges.hasPendingChanges) return;
+
+    const { spaceKey, pageId, title, version } = this.currentPage;
+    const { originalMarkdown } = this.pendingChanges;
+
+    // Write original markdown back to the cache file
+    const markdownPath = this.cache.getMarkdownPath_public(spaceKey, pageId);
+    
+    try {
+      fs.writeFileSync(markdownPath, originalMarkdown);
+
+      // Parse original markdown back to ADF and restore the view
+      const originalAdf = parseMarkdownToADF(originalMarkdown);
+      const restoredPage: PageData = {
+        title,
+        adf: originalAdf,
+        spaceKey,
+        pageId,
+        version,
+      };
+      this.setPage(restoredPage);
+    } catch (error) {
+      logger.error("Failed to restore original markdown", { error });
+    }
+
+    // Clear pending changes
+    this.pendingChanges = {
+      hasPendingChanges: false,
+      originalMarkdown: "",
+      editedMarkdown: "",
+      confirmingPublish: false,
+    };
+
+    this.updateStatus("Changes discarded.");
+  }
+
   // --- Display ---
 
   private updateDisplay(): void {
@@ -803,6 +998,9 @@ export class PageView implements NavigableComponent {
       status = `-- VISUAL -- ${status}`;
     } else if (this.visualMode === "line") {
       status = `-- VISUAL LINE -- ${status}`;
+    }
+    if (this.pendingChanges.hasPendingChanges) {
+      status = `[MODIFIED] ${status}`;
     }
     this.updateStatus(status);
   }
@@ -1158,11 +1356,12 @@ export class PageView implements NavigableComponent {
   openEditor(): void {
     if (!this.currentPage) return;
 
-    const markdownPath = this.cache.getMarkdownPath_public(
-      this.currentPage.spaceKey,
-      this.currentPage.pageId
-    );
+    const { spaceKey, pageId, title, version } = this.currentPage;
 
+    // Read original markdown before editing
+    const originalMarkdown = this.cache.readMarkdownFile(spaceKey, pageId) || "";
+
+    const markdownPath = this.cache.getMarkdownPath_public(spaceKey, pageId);
     const lineArg = `+${this.cursorLine + 1}`;
 
     this.renderer.suspend();
@@ -1174,7 +1373,41 @@ export class PageView implements NavigableComponent {
     this.renderer.resume();
 
     if (result.status === 0) {
-      this.updateStatus("Editor closed. Changes saved to cache.");
+      // Read the edited markdown
+      const editedMarkdown = this.cache.readMarkdownFile(spaceKey, pageId) || "";
+
+      // Check if there are changes
+      if (editedMarkdown !== originalMarkdown) {
+        this.pendingChanges = {
+          hasPendingChanges: true,
+          originalMarkdown,
+          editedMarkdown,
+          confirmingPublish: false,
+        };
+
+        // Parse the edited markdown to ADF and update the view
+        try {
+          const newAdf = parseMarkdownToADF(editedMarkdown);
+          logger.debug("Parsed markdown to ADF", { adf: JSON.stringify(newAdf, null, 2) });
+
+          // Update the current page with the new ADF
+          const updatedPage: PageData = {
+            title,
+            adf: newAdf,
+            spaceKey,
+            pageId,
+            version,
+          };
+
+          this.setPage(updatedPage);
+          this.updateStatus("[MODIFIED] Press 'p' to publish, 'Esc' to discard");
+        } catch (error) {
+          logger.error("Failed to parse markdown", { error });
+          this.updateStatus(`[MODIFIED] Parse error - Press 'p' to publish, 'Esc' to discard`);
+        }
+      } else {
+        this.updateStatus("No changes made.");
+      }
     } else {
       this.updateStatus(`Editor exited with code ${result.status}`);
     }

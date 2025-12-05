@@ -53,7 +53,7 @@ class Logger {
 
     const logLine = this.formatMessage(levelName, message, data);
     console.log(logLine);
-    // fs.appendFileSync(this.logFile, logLine + "\n");
+    fs.appendFileSync(this.logFile, logLine + "\n");
   }
 
   debug(message: string, data?: unknown): void {

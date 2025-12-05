@@ -124,6 +124,15 @@ export interface RenderContext {
   components: Map<string, MarkdownComponent>;
 }
 
+// Markdown parsing types
+export interface MarkdownToken {
+  type: string;
+  content: string;
+  attrs?: Record<string, unknown>;
+  children?: MarkdownToken[];
+  marks?: string[];
+}
+
 export interface ReadViewNode {
   content: string;
   style?: {
