@@ -1,6 +1,6 @@
 {
   "name": "rivermeet-tui",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Terminal UI for Confluence",
   "type": "module",
   "bin": {
