@@ -32,7 +32,6 @@ export class TreeView implements NavigableComponent {
   private treeNodes: TreeNode[] = [];
   private flattenedNodes: TreeNode[] = [];
 
-
   constructor(events: TreeViewEvents = {}) {
     this.renderer = container.resolve<CliRenderer>(TOKENS.Renderer);
     this.config = container.resolve<Config>(TOKENS.Config);
@@ -76,7 +75,6 @@ export class TreeView implements NavigableComponent {
 
     this.setupEventHandlers();
     this.registerWithNavigationHelp();
-
   }
 
   /**

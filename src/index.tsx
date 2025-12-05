@@ -11,23 +11,21 @@ import {
   ConsolePosition,
 } from "@opentui/core";
 
-import { DEBUG_MODE } from "./constants";
-import type { TreeNode, Config } from "./types";
-import { ConfluenceClient } from "./confluence-client";
-import { loadConfig, validateConfig, matchesKey } from "./config";
-import { PageCache } from "./cache";
-import { logger } from "./logger";
+import {DEBUG_MODE} from "./constants";
+import type {TreeNode, Config} from "./types";
+import {ConfluenceClient} from "./confluence-client";
+import {loadConfig, validateConfig, matchesKey} from "./config";
+import {PageCache} from "./cache";
+import {logger} from "./logger";
 
 // DI Container
-import { container, TOKENS } from "./di/container";
+import {container, TOKENS} from "./di/container";
 
 // Components
 import {
   TreeView,
   PageView,
-  DebugPanel,
   NavigationHelp,
-  type DebugMode,
 } from "./components";
 
 class ConfluenceTUI {
@@ -44,7 +42,6 @@ class ConfluenceTUI {
   // Components
   private treeView!: TreeView;
   private pageView!: PageView;
-  private debugPanel: DebugPanel | null = null;
   private navigationHelp!: NavigationHelp;
 
   async initialize(): Promise<void> {
@@ -56,11 +53,17 @@ class ConfluenceTUI {
     this.renderer.setBackgroundColor(this.config.theme.background);
     this.createUI();
     this.setupKeyboardHandling();
-    await this.treeView.loadSpaces();
+    if (DEBUG_MODE) {
+      await this.openPage({
+        label: "Page", spaceKey: "AIS", pageId: "5122097206"
+      })
+      return
+    }
+      await this.treeView.loadSpaces();
   }
 
   private createUI(): void {
-    const { theme } = this.config;
+    const {theme} = this.config;
 
     // Main container
     this.mainContainer = new BoxRenderable(this.renderer, {
@@ -153,20 +156,6 @@ class ConfluenceTUI {
     });
     this.contentContainer!.add(this.pageView.container);
     container.registerInstance(TOKENS.PageView, this.pageView);
-
-    // Create DebugPanel
-    if (DEBUG_MODE) {
-      this.debugPanel = new DebugPanel({
-        renderer: this.renderer,
-        config: this.config,
-        getContent: (mode) => this.getDebugContent(mode),
-        callbacks: {
-          onStatusUpdate: (msg) => this.updateStatus(msg),
-          onPanelSwitch: (panel) => this.switchToPanel(panel),
-        },
-      });
-      container.registerInstance(TOKENS.DebugPanel, this.debugPanel);
-    }
   }
 
   private setupKeyboardHandling(): void {
@@ -175,7 +164,7 @@ class ConfluenceTUI {
     });
   }
 
-  private async openPage(node: TreeNode): Promise<void> {
+  private async openPage(node: Pick<TreeNode, "pageId" | "spaceKey" | "label">): Promise<void> {
     await this.pageView.loadPage(node);
     this.showPageView();
   }
@@ -183,7 +172,6 @@ class ConfluenceTUI {
   private showTreeView(): void {
     this.treeView.show();
     this.pageView.hide();
-    this.debugPanel?.hide();
     this.treeView.activate();
   }
 
@@ -194,11 +182,6 @@ class ConfluenceTUI {
     this.treeView.hide();
     this.pageView.show();
     this.pageView.activate();
-
-    // Extend help with debug panel entries if in debug mode
-    if (DEBUG_MODE && this.debugPanel) {
-      this.navigationHelp.extendLocalHelp(this.debugPanel.getHelpEntries());
-    }
   }
 
   private updateStatus(message: string): void {
@@ -213,83 +196,7 @@ class ConfluenceTUI {
     this.renderer.console.toggle();
   }
 
-  private switchToPanel(panel: "main" | "debug"): void {
-    if (!this.debugPanel?.isVisible()) return;
-
-    const { theme } = this.config;
-
-    if (panel === "main") {
-      this.pageView.focus();
-      this.debugPanel?.blur();
-      this.pageView.setBorderColor(theme.highlight);
-      this.debugPanel?.setBorderColor(theme.border);
-    } else {
-      this.pageView.blur();
-      this.debugPanel?.focus();
-      this.pageView.setBorderColor(theme.border);
-      this.debugPanel?.setBorderColor(theme.warning);
-    }
-
-    this.updateStatus(
-      `Debug: ${this.debugPanel.getMode().toUpperCase()} | Active: ${panel.toUpperCase()} | [/]: switch | Tab: mode`
-    );
-  }
-
-  private getDebugContent(mode: DebugMode): string {
-    const currentPage = this.pageView.getPage();
-
-    switch (mode) {
-      case "logs":
-        const entries = logger.getRecentEntries(100);
-        if (entries.length === 0) {
-          return "No log entries yet...";
-        }
-        return entries
-          .map((entry) => {
-            const time =
-              entry.timestamp.split("T")[1]?.split(".")[0] || entry.timestamp;
-            const levelColor =
-              entry.level === "ERROR"
-                ? "ERR"
-                : entry.level === "WARN"
-                  ? "WRN"
-                  : entry.level === "DEBUG"
-                    ? "DBG"
-                    : "INF";
-            let line = `[${time}] ${levelColor} ${entry.message}`;
-            if (entry.data) {
-              const dataStr = JSON.stringify(entry.data);
-              line += ` ${dataStr}`;
-            }
-            return line;
-          })
-          .join("\n");
-      case "adf":
-        if (!currentPage) return "No page loaded - open a page to see ADF";
-        return JSON.stringify(currentPage.adf, null, 2);
-      case "markdown":
-        if (!currentPage)
-          return "No page loaded - open a page to see markdown";
-        return (
-          this.cache.readMarkdownFile(
-            currentPage.spaceKey,
-            currentPage.pageId
-          ) || "No markdown available"
-        );
-      case "readview":
-        if (!currentPage)
-          return "No page loaded - open a page to see read view";
-        const lines = this.pageView.getLines();
-        return lines
-          .map((l, i) => `${(i + 1).toString().padStart(4, " ")} | ${l.content}`)
-          .join("\n");
-      default:
-        return "Unknown mode";
-    }
-  }
-
   private cleanup(): void {
-    this.debugPanel?.destroy();
     this.navigationHelp.destroy();
     this.renderer.destroy();
     process.exit(0);
@@ -297,7 +204,7 @@ class ConfluenceTUI {
 }
 
 async function main(): Promise<void> {
-  logger.info("Application starting", { debugMode: DEBUG_MODE });
+  logger.info("Application starting", {debugMode: DEBUG_MODE});
 
   if (DEBUG_MODE) {
     logger.info("Debug mode enabled - press 'd' to open debug panel");
@@ -315,7 +222,7 @@ async function main(): Promise<void> {
   const errors = validateConfig(config);
 
   if (errors.length > 0) {
-    logger.error("Configuration validation failed", { errors });
+    logger.error("Configuration validation failed", {errors});
     console.error("Configuration errors:");
     for (const error of errors) {
       console.error(`  - ${error}`);

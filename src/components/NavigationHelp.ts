@@ -34,6 +34,12 @@ export interface NavigableComponent extends HelpProvider, KeyHandler {
    * Called when the component becomes inactive
    */
   onDeactivate?(): void;
+
+  /**
+   * Returns true if the component wants exclusive input (e.g., during search mode)
+   * When true, global handlers will be skipped
+   */
+  wantsExclusiveInput?(): boolean;
 }
 
 /**
@@ -148,21 +154,40 @@ export class NavigationHelp {
 
   /**
    * Handle keypress - tries global handlers first, then active component
+   * Unless the component wants exclusive input (e.g., during search mode)
    */
   handleKeypress(key: KeyEvent): boolean {
-    // Try global handlers first (quit, etc.)
-    for (const handler of this.globalKeyHandlers) {
-      if (handler(key)) {
-        return true;
+    // Check if active component wants exclusive input
+    const exclusiveInput = this.activeComponent?.wantsExclusiveInput?.() ?? false;
+
+    // Try global handlers first, unless component wants exclusive input
+    if (!exclusiveInput) {
+      for (const handler of this.globalKeyHandlers) {
+        if (handler(key)) {
+          return true;
+        }
       }
     }
 
     // Try active component's handler
     if (this.activeComponent) {
-      return this.activeComponent.handleKeypress(key);
+      const handled = this.activeComponent.handleKeypress(key);
+      // Refresh help entries after handling (component state may have changed)
+      this.refreshLocalHelp();
+      return handled;
     }
 
     return false;
+  }
+
+  /**
+   * Refresh help entries from the active component
+   */
+  refreshLocalHelp(): void {
+    if (this.activeComponent) {
+      this.localEntries = this.activeComponent.getHelpEntries();
+      this.render();
+    }
   }
 
   /**
