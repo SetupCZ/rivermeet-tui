@@ -1,0 +1,162 @@
+---
+title: Config File
+description: Configure Rivermeet TUI with a JSON config file
+---
+
+import { Aside, FileTree } from '@astrojs/starlight/components';
+
+For persistent configuration, you can create a JSON config file instead of using environment variables.
+
+## Config File Location
+
+The config file should be placed at:
+
+```
+~/.config/rivermeet-tui/config.json
+```
+
+Or if you have `XDG_CONFIG_HOME` set:
+
+```
+$XDG_CONFIG_HOME/rivermeet-tui/config.json
+```
+
+<FileTree>
+- .config/
+  - rivermeet-tui/
+    - config.json
+</FileTree>
+
+## Full Configuration Example
+
+```json
+{
+  "confluence": {
+    "baseUrl": "https://your-domain.atlassian.net",
+    "email": "your-email@example.com",
+    "apiToken": "your-api-token"
+  },
+  "editor": "vim",
+  "cacheDir": "~/.cache/rivermeet-tui",
+  "keyBindings": {
+    "up": ["k", "up"],
+    "down": ["j", "down"],
+    "left": ["h", "left"],
+    "right": ["l", "right"],
+    "select": ["return", "enter"],
+    "back": ["escape", "backspace"],
+    "edit": ["i"],
+    "quit": ["q"],
+    "search": ["/"],
+    "refresh": ["r"]
+  },
+  "theme": {
+    "primary": "#7aa2f7",
+    "secondary": "#bb9af7",
+    "background": "#1a1b26",
+    "text": "#c0caf5",
+    "border": "#565f89",
+    "highlight": "#3b82f6",
+    "error": "#f7768e",
+    "warning": "#e0af68"
+  }
+}
+```
+
+## Configuration Options
+
+### confluence
+
+Confluence API connection settings:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `baseUrl` | string | Your Confluence instance URL |
+| `email` | string | Your Atlassian account email |
+| `apiToken` | string | Your Atlassian API token |
+
+<Aside type="tip">
+  You can use environment variables for credentials and leave this section out of your config file to avoid storing secrets in plain text.
+</Aside>
+
+### editor
+
+The text editor to use when pressing `i` to edit a page:
+
+```json
+{
+  "editor": "nvim"
+}
+```
+
+Common values: `vim`, `nvim`, `nano`, `code --wait`
+
+### cacheDir
+
+Directory for cached pages and logs:
+
+```json
+{
+  "cacheDir": "~/.cache/rivermeet-tui"
+}
+```
+
+### keyBindings
+
+Customize keyboard shortcuts. Each action can have multiple keys:
+
+```json
+{
+  "keyBindings": {
+    "up": ["k", "up"],
+    "down": ["j", "down"],
+    "quit": ["q", "ctrl+c"]
+  }
+}
+```
+
+Available actions:
+
+| Action | Default Keys | Description |
+|--------|--------------|-------------|
+| `up` | `k`, `up` | Move cursor up |
+| `down` | `j`, `down` | Move cursor down |
+| `left` | `h`, `left` | Move left / collapse |
+| `right` | `l`, `right` | Move right / expand |
+| `select` | `return`, `enter` | Select / open |
+| `back` | `escape`, `backspace` | Go back |
+| `edit` | `i` | Edit page |
+| `quit` | `q` | Quit application |
+| `search` | `/` | Start search |
+| `refresh` | `r` | Refresh spaces |
+
+### theme
+
+Customize the color scheme:
+
+```json
+{
+  "theme": {
+    "primary": "#7aa2f7",
+    "secondary": "#bb9af7",
+    "background": "#1a1b26",
+    "text": "#c0caf5",
+    "border": "#565f89",
+    "highlight": "#3b82f6",
+    "error": "#f7768e",
+    "warning": "#e0af68"
+  }
+}
+```
+
+## Minimal Configuration
+
+You only need to specify what you want to override. A minimal config might be:
+
+```json
+{
+  "editor": "nvim"
+}
+```
+
+With credentials provided via [environment variables](/guides/environment/).

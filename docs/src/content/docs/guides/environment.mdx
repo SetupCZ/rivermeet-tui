@@ -1,0 +1,97 @@
+---
+title: Environment Variables
+description: Configure Rivermeet TUI using environment variables
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Rivermeet TUI can be configured using environment variables. These are useful for setting up credentials and customizing behavior without a config file.
+
+## Required Variables
+
+These environment variables are **required** to connect to Confluence:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `ATLASSIAN_BASE_URL` | Your Confluence instance URL | `https://your-domain.atlassian.net` |
+| `ATLASSIAN_EMAIL` | Your Atlassian account email | `your-email@example.com` |
+| `ATLASSIAN_API_TOKEN` | Your Atlassian API token | `ATATT3xFfGF0...` |
+
+### Getting an API Token
+
+1. Go to [Atlassian API Tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
+2. Click **Create API token**
+3. Give it a label (e.g., "rivermeet-tui")
+4. Copy the generated token
+
+<Aside type="caution">
+  Keep your API token secret. Never commit it to version control.
+</Aside>
+
+### Setting Up
+
+Add these to your shell configuration file (`~/.bashrc`, `~/.zshrc`, etc.):
+
+```bash
+# Confluence credentials
+export ATLASSIAN_BASE_URL="https://your-domain.atlassian.net"
+export ATLASSIAN_EMAIL="your-email@example.com"
+export ATLASSIAN_API_TOKEN="your-api-token"
+```
+
+Then reload your shell:
+
+```bash
+source ~/.zshrc  # or ~/.bashrc
+```
+
+## Optional Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `EDITOR` | Text editor for editing pages | `vim` |
+| `DEBUG` | Enable debug mode (`1` or `true`) | Not set |
+| `LOG_LEVEL` | Logging verbosity | `DEBUG` |
+| `XDG_CONFIG_HOME` | Base config directory | `~/.config` |
+
+### EDITOR
+
+When you press `i` to edit a page, Rivermeet TUI opens the page in this editor:
+
+```bash
+export EDITOR="nvim"  # Use Neovim
+export EDITOR="code --wait"  # Use VS Code
+export EDITOR="vim"  # Default
+```
+
+### DEBUG
+
+Enable debug mode to show a debug panel with logs:
+
+```bash
+export DEBUG=1
+bunx rivermeet-tui
+```
+
+In debug mode, press `d` to toggle the debug panel.
+
+### LOG_LEVEL
+
+Control log verbosity:
+
+```bash
+export LOG_LEVEL="INFO"  # Less verbose
+export LOG_LEVEL="DEBUG"  # Most verbose (default)
+export LOG_LEVEL="WARN"   # Only warnings and errors
+export LOG_LEVEL="ERROR"  # Only errors
+```
+
+Logs are written to `~/.cache/rivermeet-tui/logs/rivermeet-tui-YYYY-MM-DD.log`.
+
+## Priority
+
+Environment variables are overridden by values in the [config file](/guides/configuration/). The priority order is:
+
+1. Config file values (highest priority)
+2. Environment variables
+3. Built-in defaults (lowest priority)

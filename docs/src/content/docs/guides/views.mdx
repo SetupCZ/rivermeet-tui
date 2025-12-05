@@ -1,0 +1,144 @@
+---
+title: Views & Navigation
+description: Understanding the different views in Rivermeet TUI
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Rivermeet TUI has two main views for browsing and reading Confluence content.
+
+## Tree View
+
+The Tree View is your starting point. It displays your Confluence spaces in a hierarchical list.
+
+### Visual Elements
+
+| Icon | Meaning |
+|------|---------|
+| `▶ ` | Collapsed space |
+| `▼ ` | Expanded space |
+| ` ` | Page |
+
+Each item shows:
+- **Name**: Space or page title
+- **Description**: Space key or page ID (shown in dimmed text)
+
+### Navigating the Tree
+
+<Steps>
+
+1. **Browse spaces**: Use `j`/`k` to move up and down the list
+
+2. **Expand a space**: Press `l`, `→`, or `Enter` on a space to load its pages
+
+3. **Collapse a space**: Press `h` or `←` to collapse an expanded space
+
+4. **Open a page**: Press `l`, `→`, or `Enter` on a page to view its content
+
+5. **Refresh**: Press `r` to reload the space list from Confluence
+
+</Steps>
+
+## Read View
+
+The Read View displays page content rendered as markdown with line numbers.
+
+### Layout
+
+```
+┌─────────────────────────────────────────────────┐
+│  1 │ # Page Title                               │
+│  2 │                                            │
+│  3 │ Page content rendered as markdown...       │
+│  4 │                                            │
+│... │ ...                                        │
+├─────────────────────────────────────────────────┤
+│ 3:15                          -- VISUAL LINE -- │
+└─────────────────────────────────────────────────┘
+```
+
+- **Line numbers**: Displayed on the left
+- **Content**: Markdown-rendered page content
+- **Status bar**: Shows cursor position and mode
+
+### Status Bar Indicators
+
+| Indicator | Meaning |
+|-----------|---------|
+| `3:15` | Cursor at line 3, column 15 |
+| `-- VISUAL --` | Character selection mode active |
+| `-- VISUAL LINE --` | Line selection mode active |
+| `[MODIFIED]` | Page has unpublished edits |
+
+### Cursor Navigation
+
+The cursor appears as an inverted character. Navigate with vim-style keys:
+
+- `hjkl` for character/line movement
+- `w`/`b` for word jumps
+- `0`/`$` for line start/end
+- `g`/`G` for document start/end
+
+### Search Highlighting
+
+When you search with `/`:
+
+- **Yellow background**: All matches
+- **Orange background**: Current match
+
+Use `n`/`N` to jump between matches.
+
+## Supported Confluence Content
+
+Rivermeet TUI renders most Confluence content as markdown:
+
+### Fully Supported
+
+- Paragraphs and headings (H1-H6)
+- Bold, italic, underline, strikethrough
+- Code blocks and inline code
+- Links
+- Ordered and unordered lists
+- Blockquotes
+- Tables
+- Horizontal rules
+
+### Confluence-Specific Elements
+
+| Element | Rendering |
+|---------|-----------|
+| **Panels** | Boxed sections with type indicator (info, note, warning, error, success) |
+| **Task lists** | Checkboxes `[ ]` or `[x]` |
+| **Decision items** | Decision lists with status |
+| **Status labels** | Colored status badges |
+| **Mentions** | `@username` format |
+| **Dates** | Formatted dates |
+| **Expand** | Collapsible sections |
+| **Attachments** | Placeholder text |
+| **Emoji** | Emoji shortcodes |
+
+<Aside type="note">
+  Unknown Confluence components are displayed as JSON code blocks with a label indicating the component type.
+</Aside>
+
+## Caching
+
+Pages are cached locally for faster access:
+
+- **Location**: `~/.cache/rivermeet-tui/<space-key>/`
+- **Files**:
+  - `<page-id>.json` - Full page data
+  - `<page-id>.md` - Editable markdown version
+- **Staleness**: Pages are re-fetched after 5 minutes
+
+<Aside type="tip">
+  Cached pages allow you to browse previously viewed content even when offline.
+</Aside>
+
+## Debug Panel
+
+When running with `DEBUG=1`, press `d` to toggle the debug panel:
+
+- Appears on the right side (30% width)
+- Shows color-coded log messages
+- Useful for troubleshooting API issues

@@ -1,0 +1,55 @@
+---
+title: Getting Started
+description: How to install and run Rivermeet TUI
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+Rivermeet TUI is a terminal application for browsing and editing Confluence pages with vim-style navigation.
+
+## Setting Up Confluence API Access
+
+<Steps>
+
+1. **Get your API token**
+
+   Go to [Atlassian API Tokens](https://id.atlassian.com/manage-profile/security/api-tokens) and create a new API token.
+
+2. **Set environment variables**
+
+   ```bash
+   export ATLASSIAN_BASE_URL="https://your-domain.atlassian.net"
+   export ATLASSIAN_EMAIL="your-email@example.com"
+   export ATLASSIAN_API_TOKEN="your-api-token"
+   ```
+
+   <Aside type="tip">
+     Add these to your `~/.bashrc`, `~/.zshrc`, or shell config file for persistence.
+   </Aside>
+
+3. **Run the application**
+
+   ```bash
+   bunx rivermeet-tui
+   ```
+
+</Steps>
+
+## First Launch
+
+When you first launch the app, you'll see the **Tree View** showing your Confluence spaces:
+
+- Use `j`/`k` to move up and down
+- Press `l` or `Enter` to expand a space and view its pages
+- Press `l` or `Enter` again on a page to open it
+- Press `q` to quit
+
+<Aside>
+  Pages are cached locally in `~/.cache/rivermeet-tui/` for faster subsequent loads.
+</Aside>
+
+## Next Steps
+
+- [Set up environment variables](/guides/environment/) for persistence
+- [Configure the app](/guides/configuration/) with a config file
+- [Learn all keybindings](/guides/keybindings/) for efficient navigation

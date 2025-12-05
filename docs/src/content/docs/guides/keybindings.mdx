@@ -1,0 +1,136 @@
+---
+title: Keybindings
+description: Complete keyboard shortcut reference for Rivermeet TUI
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Rivermeet TUI uses vim-style keybindings for efficient keyboard-driven navigation.
+
+## Global Keys
+
+These keys work in any view:
+
+| Key | Action |
+|-----|--------|
+| `q` | Quit application |
+| `d` | Toggle debug panel (only in DEBUG mode) |
+
+## Tree View
+
+The Tree View is where you browse Confluence spaces and pages.
+
+| Key | Action |
+|-----|--------|
+| `j` / `↓` | Move down |
+| `k` / `↑` | Move up |
+| `l` / `→` / `Enter` | Expand space / Open page |
+| `h` / `←` | Collapse space |
+| `r` | Refresh spaces |
+
+## Read View (Page Content)
+
+When viewing a Confluence page, you have full vim-style navigation.
+
+### Basic Navigation
+
+| Key | Action |
+|-----|--------|
+| `j` / `↓` | Move cursor down one line |
+| `k` / `↑` | Move cursor up one line |
+| `h` | Move cursor left one character |
+| `l` | Move cursor right one character |
+
+### Fast Navigation
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+d` | Half page down |
+| `Ctrl+u` | Half page up |
+| `g` | Go to top of document |
+| `G` | Go to bottom of document |
+
+### Word & Line Movement
+
+| Key | Action |
+|-----|--------|
+| `w` | Move forward one word |
+| `b` | Move backward one word |
+| `0` | Go to start of line |
+| `$` | Go to end of line |
+
+### Search
+
+| Key | Action |
+|-----|--------|
+| `/` | Start search |
+| `Enter` | Execute search (in search mode) |
+| `Esc` | Cancel search |
+| `n` | Jump to next match |
+| `N` | Jump to previous match |
+
+<Aside>
+  Search matches are highlighted in yellow. The current match is highlighted in orange.
+</Aside>
+
+### Visual Mode (Selection)
+
+| Key | Action |
+|-----|--------|
+| `v` | Enter character visual mode |
+| `V` | Enter line visual mode |
+| `y` | Yank (copy) selection to clipboard |
+| `Esc` | Cancel selection |
+
+### Editing & Publishing
+
+| Key | Action |
+|-----|--------|
+| `i` | Open page in your `$EDITOR` |
+| `p` | Publish pending changes |
+| `y` | Confirm publish (when prompted) |
+| `n` | Cancel publish (when prompted) |
+| `Esc` | Discard changes / Return to tree view |
+| `Backspace` | Return to tree view |
+
+## Editing Workflow
+
+<Tabs>
+  <TabItem label="Edit a Page">
+    1. Navigate to a page and press `Enter` to open it
+    2. Press `i` to open the page in your editor
+    3. Make your changes and save the file
+    4. Close your editor to return to Rivermeet TUI
+  </TabItem>
+  <TabItem label="Publish Changes">
+    1. After editing, you'll see `[MODIFIED]` in the status bar
+    2. Press `p` to start publishing
+    3. Press `y` to confirm or `n` to cancel
+    4. Changes are pushed to Confluence
+  </TabItem>
+  <TabItem label="Discard Changes">
+    1. If you see `[MODIFIED]` and want to discard
+    2. Press `Esc` to discard pending changes
+    3. The page will reload from cache
+  </TabItem>
+</Tabs>
+
+## Quick Reference Card
+
+```
+Navigation          Search              Visual Mode
+─────────────       ──────────          ───────────
+j/k - up/down       / - search          v - char select
+h/l - left/right    n - next match      V - line select
+w/b - word          N - prev match      y - yank
+0/$ - line start/end                    Esc - cancel
+g/G - top/bottom    
+Ctrl+u/d - scroll   
+
+Editing             Tree View
+────────            ─────────
+i - edit            j/k - navigate
+p - publish         l/Enter - expand/open
+Esc - discard       h - collapse
+q - quit            r - refresh
+```

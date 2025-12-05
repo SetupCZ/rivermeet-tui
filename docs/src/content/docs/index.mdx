@@ -1,0 +1,51 @@
+---
+title: Rivermeet TUI
+description: A terminal user interface for reading and editing Confluence pages
+template: splash
+hero:
+  tagline: Browse, read, and edit Confluence pages directly from your terminal with vim-style navigation.
+  actions:
+    - text: Get Started
+      link: /guides/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/yourusername/rivermeet-tui
+      icon: external
+      variant: secondary
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Features
+
+<CardGrid stagger>
+  <Card title="Vim Navigation" icon="pencil">
+    Navigate pages with familiar `hjkl` keys, search with `/`, and use visual mode to select and yank text.
+  </Card>
+  <Card title="Tree Browser" icon="open-book">
+    Browse Confluence spaces and pages in a hierarchical tree view with expand/collapse support.
+  </Card>
+  <Card title="Edit in Your Editor" icon="document">
+    Press `i` to open any page in your preferred `$EDITOR` (vim, nvim, etc.) and publish changes back to Confluence.
+  </Card>
+  <Card title="Offline Caching" icon="laptop">
+    Pages are cached locally as markdown files for fast access and offline reading.
+  </Card>
+</CardGrid>
+
+## Quick Start
+
+```bash
+# Set your Confluence credentials
+export ATLASSIAN_BASE_URL="https://your-domain.atlassian.net"
+export ATLASSIAN_EMAIL="your-email@example.com"
+export ATLASSIAN_API_TOKEN="your-api-token"
+
+# Run the app
+bunx rivermeet-tui
+```
+
+## Requirements
+
+- Confluence Cloud account with API access
