@@ -4,6 +4,7 @@ import type {
   ConfluencePageRef,
   ADFDocument,
   Config,
+  SearchResult,
 } from "./types";
 import { logger } from "./logger";
 
@@ -373,5 +374,102 @@ export class ConfluenceClient {
       }
     }
     return null;
+  }
+
+  /**
+   * Search for content across Confluence
+   * Uses the CQL (Confluence Query Language) search API
+   */
+  async search(query: string, limit: number = 10): Promise<SearchResult[]> {
+    if (!query.trim()) {
+      return [];
+    }
+
+    // The search API returns results directly, not nested under 'content'
+    interface SearchResponse {
+      results: Array<{
+        id: string;
+        type: string;
+        title: string;
+        space?: {
+          key: string;
+          name: string;
+        };
+        history?: {
+          lastUpdated?: {
+            when?: string;
+          };
+        };
+        _links?: {
+          webui?: string;
+        };
+        // Also check for nested content structure
+        content?: {
+          id: string;
+          type: string;
+          title: string;
+          space?: {
+            key: string;
+            name: string;
+          };
+          history?: {
+            lastUpdated?: {
+              when?: string;
+            };
+          };
+          _links?: {
+            webui?: string;
+          };
+        };
+        excerpt?: string;
+      }>;
+    }
+
+    // Use CQL to search for pages by title OR content containing the query text
+    const cql = encodeURIComponent(`type=page AND (title ~ "${query}" OR text ~ "${query}")`);
+    const endpoint = `/wiki/rest/api/content/search?cql=${cql}&limit=${limit}&expand=space,history.lastUpdated`;
+
+    try {
+      const response = await this.request<SearchResponse>(endpoint);
+      
+      logger.debug("Search response", { 
+        query, 
+        resultCount: response.results?.length ?? 0,
+        hasResults: !!response.results,
+        responseKeys: Object.keys(response),
+        firstResult: response.results?.[0] ? JSON.stringify(response.results[0]).substring(0, 500) : null,
+      });
+
+      if (!response.results || response.results.length === 0) {
+        return [];
+      }
+
+      return response.results.map((result) => {
+        // Handle both direct properties and nested 'content' structure
+        const content = result.content || result;
+        return {
+          id: content.id,
+          title: content.title,
+          spaceKey: content.space?.key || "",
+          spaceName: content.space?.name || "",
+          type: content.type as "page" | "blogpost" | "attachment",
+          excerpt: result.excerpt,
+          url: content._links?.webui
+            ? `${this.baseUrl}/wiki${content._links.webui}`
+            : undefined,
+          lastModified: content.history?.lastUpdated?.when,
+        };
+      });
+    } catch (error) {
+      logger.error("Search failed", { query, error: error instanceof Error ? error.message : error });
+      return [];
+    }
+  }
+
+  /**
+   * Get the base URL for building links
+   */
+  getBaseUrl(): string {
+    return this.baseUrl;
   }
 }

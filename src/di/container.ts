@@ -84,6 +84,7 @@ export const TOKENS = {
   // Components
   TreeView: Symbol("TreeView"),
   PageView: Symbol("PageView"),
+  LandingView: Symbol("LandingView"),
   DebugPanel: Symbol("DebugPanel"),
   NavigationHelp: Symbol("NavigationHelp"),
   StatusBar: Symbol("StatusBar"),

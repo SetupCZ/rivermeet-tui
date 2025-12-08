@@ -13,7 +13,18 @@ These keys work in any view:
 
 | Key | Action |
 |-----|--------|
+| `⌘K` | Open global search |
 | `q` | Quit application |
+
+## Search
+
+| Key | Action |
+|-----|--------|
+| `⌘K` | Open search |
+| `↑` / `↓` | Navigate results |
+| `Enter` | Select result |
+| `Ctrl+1-5` | Quick select result 1-5 |
+| `Esc` | Close search |
 
 ## Tree View
 
@@ -119,12 +130,12 @@ When viewing a Confluence page, you have full vim-style navigation.
 ```
 Navigation          Search              Visual Mode
 ─────────────       ──────────          ───────────
-j/k - up/down       / - search          v - char select
-h/l - left/right    n - next match      V - line select
-w/b - word          N - prev match      y - yank
-0/$ - line start/end                    Esc - cancel
-g/G - top/bottom    
-Ctrl+u/d - scroll   
+j/k - up/down       ⌘K - open search    v - char select
+h/l - left/right    ↑/↓ - navigate      V - line select
+w/b - word          Enter - select      y - yank
+0/$ - line start/end ^1-5 - quick sel   Esc - cancel
+g/G - top/bottom    / - in-page search
+Ctrl+u/d - scroll   n/N - next/prev
 
 Editing             Tree View
 ────────            ─────────

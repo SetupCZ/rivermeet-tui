@@ -8,3 +8,6 @@ export {
   type NavigableComponent,
   helpEntry
 } from "./NavigationHelp";
+export { SearchInput, type SearchInputEvents, type SearchInputOptions } from "./SearchInput";
+export { SearchModal, type SearchModalEvents } from "./SearchModal";
+export { LandingView, type LandingViewEvents } from "./LandingView";

@@ -1,21 +1,21 @@
 #!/usr/bin/env bun
 import {
-  createCliRenderer,
-  type CliRenderer,
-  type KeyEvent,
-  BoxRenderable,
-  TextRenderable,
   ASCIIFontRenderable,
+  BoxRenderable,
+  type CliRenderer,
+  ConsolePosition,
+  createCliRenderer,
+  fg,
+  type KeyEvent,
   RGBA,
   t,
-  fg,
-  ConsolePosition,
+  TextRenderable,
 } from "@opentui/core";
 
 import {DEBUG_MODE} from "./constants";
-import type {TreeNode, Config} from "./types";
+import type {Config, TreeNode} from "./types";
 import {ConfluenceClient} from "./confluence-client";
-import {loadConfig, validateConfig, KeyBindingManager} from "./config";
+import {KeyBindingManager, loadConfig, validateConfig} from "./config";
 import {PageCache} from "./cache";
 import {logger} from "./logger";
 
@@ -23,11 +23,7 @@ import {logger} from "./logger";
 import {container, TOKENS} from "./di/container";
 
 // Components
-import {
-  TreeView,
-  PageView,
-  NavigationHelp,
-} from "./components";
+import {LandingView, NavigationHelp, PageView, SearchModal, TreeView,} from "./components";
 
 class ConfluenceTUI {
   private renderer!: CliRenderer;
@@ -44,7 +40,9 @@ class ConfluenceTUI {
   // Components
   private treeView!: TreeView;
   private pageView!: PageView;
+  private landingView!: LandingView;
   private navigationHelp!: NavigationHelp;
+  private searchModal!: SearchModal;
 
   async initialize(): Promise<void> {
     // Resolve dependencies from container
@@ -80,11 +78,12 @@ class ConfluenceTUI {
     // Title
     this.titleRenderable = new ASCIIFontRenderable(this.renderer, {
       id: "title",
-      text: DEBUG_MODE ? "Confluence [DEBUG]" : "Confluence",
+      text: DEBUG_MODE ? "Rivermeet [DEBUG]" : "Rivermeet",
       font: "tiny",
       color: RGBA.fromHex(DEBUG_MODE ? theme.warning : theme.primary),
       marginLeft: 2,
       marginTop: 1,
+      visible: false
     });
     this.mainContainer.add(this.titleRenderable);
 
@@ -117,11 +116,25 @@ class ConfluenceTUI {
     // Create components
     this.createComponents();
 
-    // Activate tree view as initial view
-    this.treeView.activate();
+    // Show landing view as initial view (tree loads in background)
+    this.landingView.activate();
   }
 
   private setupGlobalHandlers(): void {
+    // Global search handler (cmd+K) - highest priority
+    // Only show modal when NOT on landing view (landing view has search built-in)
+    this.navigationHelp.registerGlobalHandler((key) => {
+      if (this.keys.matches("globalSearch", key)) {
+        // Don't show modal if we're on the landing view
+        if (this.landingView.container.visible) {
+          return false; // Let landing view handle it
+        }
+        this.searchModal.show();
+        return true;
+      }
+      return false;
+    });
+
     // Global quit handler
     this.navigationHelp.registerGlobalHandler((key) => {
       if (this.keys.matches("quit", key)) {
@@ -144,25 +157,79 @@ class ConfluenceTUI {
   }
 
   private createComponents(): void {
+    // Create LandingView - initial landing page with search
+    this.landingView = new LandingView({
+      onPageSelect: async (result) => {
+        await this.openPage({
+          pageId: result.id,
+          spaceKey: result.spaceKey,
+          label: result.title,
+        });
+      },
+      onShowSpaces: () => {
+        this.showTreeView();
+      },
+    });
+    this.contentContainer!.add(this.landingView.container);
+    container.registerInstance(TOKENS.LandingView, this.landingView);
+
     // Create TreeView - it resolves its own dependencies from DI
     this.treeView = new TreeView({
       onPageSelect: (node) => this.openPage(node),
       onStatusUpdate: (msg) => this.updateStatus(msg),
+      onBack: () => this.showLandingView(),
     });
     this.contentContainer!.add(this.treeView.container);
+    this.treeView.hide(); // Hidden initially
     container.registerInstance(TOKENS.TreeView, this.treeView);
 
     // Create PageView - it resolves its own dependencies from DI
     this.pageView = new PageView({
-      onBack: () => this.showTreeView(),
+      onBack: () => this.showLandingView(),
       onStatusUpdate: (msg) => this.updateStatus(msg),
     });
     this.contentContainer!.add(this.pageView.container);
     container.registerInstance(TOKENS.PageView, this.pageView);
+
+    // Create SearchModal - global search overlay (for cmd+K from other views)
+    this.searchModal = new SearchModal({
+      onClose: () => {
+        // Restore focus to the previous active component
+        this.navigationHelp.refreshLocalHelp();
+      },
+      onPageSelect: async (result) => {
+        // Navigate to the selected page
+        await this.openPage({
+          pageId: result.id,
+          spaceKey: result.spaceKey,
+          label: result.title,
+        });
+      },
+      onShowSpaces: () => {
+        this.showTreeView();
+      },
+    });
+    // Add search modal to root so it overlays everything
+    this.renderer.root.add(this.searchModal.container);
   }
 
   private setupKeyboardHandling(): void {
     this.renderer.keyInput.on("keypress", (key: KeyEvent) => {
+      // Log ALL key events for debugging
+      logger.debug("Keypress", {
+        name: key.name,
+        ctrl: key.ctrl,
+        shift: key.shift,
+        meta: key.meta,
+        super: key.super,
+      });
+
+      // If search modal is open, route all keys to it first
+      if (this.searchModal.isOpen()) {
+        this.searchModal.handleKeypress(key);
+        return;
+      }
+
       this.navigationHelp.handleKeypress(key);
     });
   }
@@ -172,16 +239,34 @@ class ConfluenceTUI {
     this.showPageView();
   }
 
+  private showLandingView(): void {
+    if (this.titleRenderable){
+      this.titleRenderable.visible=false
+    }
+    this.landingView.show();
+    this.treeView.hide();
+    this.pageView.hide();
+    this.landingView.activate();
+  }
+
   private showTreeView(): void {
+    if (this.titleRenderable){
+      this.titleRenderable.visible=true
+    }
+    this.landingView.hide();
     this.treeView.show();
     this.pageView.hide();
     this.treeView.activate();
   }
 
   private showPageView(): void {
+    if (this.titleRenderable){
+      this.titleRenderable.visible=true
+    }
     const currentPage = this.pageView.getPage();
     if (!currentPage) return;
 
+    this.landingView.hide();
     this.treeView.hide();
     this.pageView.show();
     this.pageView.activate();
@@ -200,6 +285,8 @@ class ConfluenceTUI {
   }
 
   private cleanup(): void {
+    this.landingView.destroy();
+    this.searchModal.destroy();
     this.navigationHelp.destroy();
     this.renderer.destroy();
     process.exit(0);

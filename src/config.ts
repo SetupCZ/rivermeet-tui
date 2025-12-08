@@ -3,6 +3,7 @@ import * as path from "path";
 import * as os from "os";
 import type { Config, KeyBindings, KeyAction } from "./types";
 import type { KeyEvent } from "@opentui/core";
+import { logger } from "./logger";
 
 const DEFAULT_KEY_BINDINGS: KeyBindings = {
   // Navigation
@@ -35,6 +36,15 @@ const DEFAULT_KEY_BINDINGS: KeyBindings = {
   confirm: ["y"],
   cancel: ["n", "escape"],
   debug: ["d"],
+  // Global search modal
+  globalSearch: ["cmd+k"],
+  quickSelect1: ["ctrl+1"],
+  quickSelect2: ["ctrl+2"],
+  quickSelect3: ["ctrl+3"],
+  quickSelect4: ["ctrl+4"],
+  quickSelect5: ["ctrl+5"],
+  openSpaces: ["s"],
+  openDocs: ["d"],
 };
 
 const DEFAULT_THEME = {
@@ -160,19 +170,19 @@ export function validateConfig(config: Config): string[] {
   } else {
     // Clean and validate URL format
     let url = config.confluence.baseUrl.trim();
-    
+
     // Check for common typos like "hhttps://"
     if (/^h{2,}ttps?:\/\//i.test(url)) {
       console.warn(`Warning: ATLASSIAN_BASE_URL appears to have a typo: "${url}". Auto-correcting...`);
     }
-    
+
     // Normalize the URL for validation
     url = url.replace(/^h+ttps?:\/\//i, "");
     url = url.replace(/^https?:\/\//i, "");
     if (url) {
       url = `https://${url}`;
     }
-    
+
     try {
       new URL(url);
     } catch {
@@ -191,28 +201,51 @@ export function validateConfig(config: Config): string[] {
   return errors;
 }
 
-export function matchesKey(key: { name: string; ctrl?: boolean; shift?: boolean; meta?: boolean }, bindings: string[]): boolean {
-  return bindings.some(binding => {
-    // Parse binding like "ctrl+u", "shift+g", "G", etc.
+export function matchesKey(key: { name: string; ctrl?: boolean; shift?: boolean; meta?: boolean; super?: boolean }, bindings: string[]): boolean {
+  const result = bindings.some(binding => {
+    // Parse binding like "ctrl+u", "shift+g", "cmd+k", "G", etc.
     const parts = binding.toLowerCase().split("+");
     const keyName = parts[parts.length - 1];
     const needsCtrl = parts.includes("ctrl");
     const needsShift = parts.includes("shift");
-    const needsMeta = parts.includes("meta");
-    
+    const needsMeta = parts.includes("meta") || parts.includes("cmd");
+
     // Check if it's an uppercase letter (implies shift)
     const isUpperCase = binding.length === 1 && binding === binding.toUpperCase() && binding !== binding.toLowerCase();
-    
+
     // Match key name
     const nameMatches = key.name?.toLowerCase() === keyName;
-    
+
     // Match modifiers
     const ctrlMatches = needsCtrl ? !!key.ctrl : !key.ctrl;
     const shiftMatches = needsShift || isUpperCase ? !!key.shift : !key.shift;
-    const metaMatches = needsMeta ? !!key.meta : !key.meta;
-    
-    return nameMatches && ctrlMatches && shiftMatches && metaMatches;
+    // For cmd/meta, check both meta and super (macOS Command key maps to super in Kitty protocol)
+    const hasMetaOrSuper = !!key.meta || !!key.super;
+    const metaMatches = needsMeta ? hasMetaOrSuper : !hasMetaOrSuper;
+
+    const matches = nameMatches && ctrlMatches && shiftMatches && metaMatches;
+
+    if (needsMeta || hasMetaOrSuper) {
+      logger.debug("matchesKey check", {
+        binding,
+        keyName,
+        keyReceived: key.name,
+        needsMeta,
+        keyMeta: key.meta,
+        keySuper: key.super,
+        hasMetaOrSuper,
+        nameMatches,
+        ctrlMatches,
+        shiftMatches,
+        metaMatches,
+        matches,
+      });
+    }
+
+    return matches;
   });
+
+  return result;
 }
 
 /**
@@ -225,11 +258,11 @@ export function matchesKey(key: { name: string; ctrl?: boolean; shift?: boolean;
  */
 export class KeyBindingManager {
   private bindings: KeyBindings;
-  
+
   constructor(bindings: KeyBindings) {
     this.bindings = bindings;
   }
-  
+
   /**
    * Check if a key event matches an action
    */
@@ -238,14 +271,14 @@ export class KeyBindingManager {
     if (!actionBindings) return false;
     return matchesKey(key, actionBindings);
   }
-  
+
   /**
    * Get the key bindings for an action
    */
   getBindings(action: KeyAction): string[] {
     return this.bindings[action] || [];
   }
-  
+
   /**
    * Get a human-readable label for an action's keybinding
    * Used for help display
@@ -253,18 +286,18 @@ export class KeyBindingManager {
   getLabel(action: KeyAction): string {
     const bindings = this.bindings[action];
     if (!bindings || bindings.length === 0) return "";
-    
+
     // Format the first binding for display
     return this.formatBinding(bindings[0]!);
   }
-  
+
   /**
    * Get a combined label for multiple actions (e.g., "j/k" for up/down)
    */
   getCombinedLabel(actions: KeyAction[]): string {
     return actions.map(a => this.getLabel(a)).join("/");
   }
-  
+
   /**
    * Format a binding string for human display
    */
@@ -280,17 +313,17 @@ export class KeyBindingManager {
       "left": "←",
       "right": "→",
     };
-    
+
     const parts = binding.split("+");
     const formatted = parts.map(p => {
       const lower = p.toLowerCase();
       if (specialKeys[lower]) return specialKeys[lower];
-      if (p === "ctrl") return "Ctrl";
-      if (p === "shift") return "Shift";
-      if (p === "meta") return "Cmd";
+      if (lower === "ctrl") return "Ctrl";
+      if (lower === "shift") return "Shift";
+      if (lower === "meta" || lower === "cmd") return "⌘";
       return p;
     });
-    
+
     return formatted.join("+");
   }
 }

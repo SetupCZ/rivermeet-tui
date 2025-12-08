@@ -77,7 +77,15 @@ $XDG_CONFIG_HOME/rivermeet-tui/config.json
     "visualLine": ["V"],
     "confirm": ["y"],
     "cancel": ["n", "escape"],
-    "debug": ["d"]
+    "debug": ["d"],
+    "globalSearch": ["cmd+k"],
+    "quickSelect1": ["ctrl+1"],
+    "quickSelect2": ["ctrl+2"],
+    "quickSelect3": ["ctrl+3"],
+    "quickSelect4": ["ctrl+4"],
+    "quickSelect5": ["ctrl+5"],
+    "openSpaces": ["s"],
+    "openDocs": ["d"]
   },
   "theme": {
     "primary": "#7aa2f7",
@@ -152,7 +160,8 @@ Key binding format:
 - Simple keys: `"k"`, `"/"`, `"0"`
 - Arrow keys: `"up"`, `"down"`, `"left"`, `"right"`
 - Special keys: `"return"`, `"enter"`, `"escape"`, `"backspace"`
-- Modifier combinations: `"ctrl+u"`, `"ctrl+d"`
+- Modifier combinations: `"ctrl+u"`, `"ctrl+d"`, `"cmd+k"`
+- Command key (⌘): `"cmd+k"`, `"cmd+1"` (also accepts `"meta+k"`)
 - Shift keys: Use uppercase letter `"G"` or `"shift+g"`
 
 Available actions:
@@ -198,6 +207,19 @@ Available actions:
 | `confirm` | `y` | Confirm action |
 | `cancel` | `n`, `escape` | Cancel action |
 | `debug` | `d` | Toggle debug panel (debug mode only) |
+
+**Global Search:**
+
+| Action | Default Keys | Description |
+|--------|--------------|-------------|
+| `globalSearch` | `cmd+k` | Open global search modal (⌘K) |
+| `quickSelect1` | `ctrl+1` | Quick select first search result |
+| `quickSelect2` | `ctrl+2` | Quick select second search result |
+| `quickSelect3` | `ctrl+3` | Quick select third search result |
+| `quickSelect4` | `ctrl+4` | Quick select fourth search result |
+| `quickSelect5` | `ctrl+5` | Quick select fifth search result |
+| `openSpaces` | `s` | Open spaces browser (from landing view) |
+| `openDocs` | `d` | Open documentation (from landing view) |
 
 ### theme
 

@@ -104,7 +104,16 @@ export type KeyAction =
   | "visualLine"
   | "confirm"
   | "cancel"
-  | "debug";
+  | "debug"
+  // Global search modal
+  | "globalSearch"
+  | "quickSelect1"
+  | "quickSelect2"
+  | "quickSelect3"
+  | "quickSelect4"
+  | "quickSelect5"
+  | "openSpaces"
+  | "openDocs";
 
 // Config Types - maps actions to key combinations
 export interface KeyBindings {
@@ -138,6 +147,27 @@ export interface KeyBindings {
   confirm: string[];
   cancel: string[];
   debug: string[];
+  // Global search modal
+  globalSearch: string[];
+  quickSelect1: string[];
+  quickSelect2: string[];
+  quickSelect3: string[];
+  quickSelect4: string[];
+  quickSelect5: string[];
+  openSpaces: string[];
+  openDocs: string[];
+}
+
+// Search Result Types
+export interface SearchResult {
+  id: string;
+  title: string;
+  spaceKey: string;
+  spaceName: string;
+  type: "page" | "blogpost" | "attachment";
+  excerpt?: string;
+  url?: string;
+  lastModified?: string;
 }
 
 export interface Config {

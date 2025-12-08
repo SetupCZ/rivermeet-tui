@@ -15,6 +15,7 @@ import { ConfluenceClient } from "../confluence-client";
 export interface TreeViewEvents {
   onPageSelect?: (node: TreeNode) => void;
   onStatusUpdate?: (message: string) => void;
+  onBack?: () => void;
 }
 
 export class TreeView implements NavigableComponent {
@@ -129,6 +130,12 @@ export class TreeView implements NavigableComponent {
    * Handle keypress events for tree view
    */
   handleKeypress(key: KeyEvent): boolean {
+    // Go back to landing view
+    if (this.keys.matches("back", key)) {
+      this.events.onBack?.();
+      return true;
+    }
+
     // Expand/collapse or navigate into with right/l
     if (this.keys.matches("right", key) || this.keys.matches("select", key)) {
       const node = this.getSelectedNode();
@@ -170,6 +177,7 @@ export class TreeView implements NavigableComponent {
       { key: `${this.keys.getLabel("right")}/${this.keys.getLabel("select")}`, description: "open" },
       { key: this.keys.getLabel("left"), description: "collapse" },
       { key: this.keys.getLabel("refresh"), description: "refresh" },
+      { key: this.keys.getLabel("back"), description: "back" },
     ];
   }
 

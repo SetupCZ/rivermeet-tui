@@ -93,6 +93,7 @@ export class NavigationHelp {
   private setupGlobalHelp(): void {
     // Global keybindings that are always active
     this.globalEntries = [
+      { key: this.keys.getLabel("globalSearch"), description: "search" },
       { key: this.keys.getLabel("quit"), description: "quit" },
     ];
 
