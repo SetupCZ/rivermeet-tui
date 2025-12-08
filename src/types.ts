@@ -73,18 +73,71 @@ export interface TreeNode {
   parentId?: string;
 }
 
-// Config Types
+// Keybinding Action - all possible actions in the app
+export type KeyAction =
+  // Navigation
+  | "up"
+  | "down"
+  | "left"
+  | "right"
+  | "select"
+  | "back"
+  // Page navigation
+  | "halfPageUp"
+  | "halfPageDown"
+  | "lineStart"
+  | "lineEnd"
+  | "documentTop"
+  | "documentBottom"
+  | "wordForward"
+  | "wordBackward"
+  // Actions
+  | "edit"
+  | "quit"
+  | "search"
+  | "searchNext"
+  | "searchPrev"
+  | "refresh"
+  | "publish"
+  | "yank"
+  | "visualChar"
+  | "visualLine"
+  | "confirm"
+  | "cancel"
+  | "debug";
+
+// Config Types - maps actions to key combinations
 export interface KeyBindings {
+  // Navigation
   up: string[];
   down: string[];
   left: string[];
   right: string[];
   select: string[];
   back: string[];
+  // Page navigation
+  halfPageUp: string[];
+  halfPageDown: string[];
+  lineStart: string[];
+  lineEnd: string[];
+  documentTop: string[];
+  documentBottom: string[];
+  wordForward: string[];
+  wordBackward: string[];
+  // Actions
   edit: string[];
   quit: string[];
   search: string[];
+  searchNext: string[];
+  searchPrev: string[];
   refresh: string[];
+  publish: string[];
+  yank: string[];
+  visualChar: string[];
+  visualLine: string[];
+  confirm: string[];
+  cancel: string[];
+  debug: string[];
 }
 
 export interface Config {

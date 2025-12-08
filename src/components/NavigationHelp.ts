@@ -6,6 +6,7 @@ import {
   fg,
 } from "@opentui/core";
 import type { Config } from "../types";
+import { KeyBindingManager } from "../config";
 import { DEBUG_MODE } from "../constants";
 
 export interface HelpEntry {
@@ -54,6 +55,7 @@ export interface NavigableComponent extends HelpProvider, KeyHandler {
 export class NavigationHelp {
   private renderer: CliRenderer;
   private config: Config;
+  private keys: KeyBindingManager;
 
   // UI Elements
   public container: TextRenderable;
@@ -71,9 +73,10 @@ export class NavigationHelp {
   // Registered components by name
   private registeredComponents = new Map<string, NavigableComponent>();
 
-  constructor(renderer: CliRenderer, config: Config) {
+  constructor(renderer: CliRenderer, config: Config, keys?: KeyBindingManager) {
     this.renderer = renderer;
     this.config = config;
+    this.keys = keys || new KeyBindingManager(config.keyBindings);
 
     // Create the help text renderable
     this.container = new TextRenderable(this.renderer, {
@@ -90,12 +93,12 @@ export class NavigationHelp {
   private setupGlobalHelp(): void {
     // Global keybindings that are always active
     this.globalEntries = [
-      { key: "q", description: "quit" },
+      { key: this.keys.getLabel("quit"), description: "quit" },
     ];
 
     // Add debug help if in debug mode
     if (DEBUG_MODE) {
-      this.globalEntries.push({ key: "d", description: "debug" });
+      this.globalEntries.push({ key: this.keys.getLabel("debug"), description: "debug" });
     }
   }
 

@@ -15,7 +15,7 @@ import {
 import {DEBUG_MODE} from "./constants";
 import type {TreeNode, Config} from "./types";
 import {ConfluenceClient} from "./confluence-client";
-import {loadConfig, validateConfig, matchesKey} from "./config";
+import {loadConfig, validateConfig, KeyBindingManager} from "./config";
 import {PageCache} from "./cache";
 import {logger} from "./logger";
 
@@ -33,6 +33,7 @@ class ConfluenceTUI {
   private renderer!: CliRenderer;
   private config!: Config;
   private cache!: PageCache;
+  private keys!: KeyBindingManager;
 
   // UI Elements
   private mainContainer: BoxRenderable | null = null;
@@ -50,6 +51,7 @@ class ConfluenceTUI {
     this.renderer = container.resolve<CliRenderer>(TOKENS.Renderer);
     this.config = container.resolve<Config>(TOKENS.Config);
     this.cache = container.resolve<PageCache>(TOKENS.Cache);
+    this.keys = container.resolve<KeyBindingManager>(TOKENS.KeyBindings);
 
     this.renderer.setBackgroundColor(this.config.theme.background);
     this.createUI();
@@ -105,7 +107,7 @@ class ConfluenceTUI {
     this.mainContainer.add(this.statusBar);
 
     // Create NavigationHelp first and register in DI
-    this.navigationHelp = new NavigationHelp(this.renderer, this.config);
+    this.navigationHelp = new NavigationHelp(this.renderer, this.config, this.keys);
     this.mainContainer.add(this.navigationHelp.container);
     container.registerInstance(TOKENS.NavigationHelp, this.navigationHelp);
 
@@ -122,7 +124,7 @@ class ConfluenceTUI {
   private setupGlobalHandlers(): void {
     // Global quit handler
     this.navigationHelp.registerGlobalHandler((key) => {
-      if (matchesKey(key, this.config.keyBindings.quit)) {
+      if (this.keys.matches("quit", key)) {
         this.cleanup();
         return true;
       }
@@ -132,7 +134,7 @@ class ConfluenceTUI {
     // Global debug toggle handler
     if (DEBUG_MODE) {
       this.navigationHelp.registerGlobalHandler((key) => {
-        if (key.name === "d") {
+        if (this.keys.matches("debug", key)) {
           this.toggleDebugPanel();
           return true;
         }
@@ -261,6 +263,7 @@ async function main(): Promise<void> {
   // Register core services in DI container
   container.registerInstance(TOKENS.Renderer, renderer);
   container.registerInstance(TOKENS.Config, config);
+  container.registerInstance(TOKENS.KeyBindings, new KeyBindingManager(config.keyBindings));
   container.registerInstance(TOKENS.Client, new ConfluenceClient(config.confluence));
   container.registerInstance(TOKENS.Cache, new PageCache(config));
 

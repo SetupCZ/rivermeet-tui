@@ -7,7 +7,7 @@ import {
   type SelectOption,
 } from "@opentui/core";
 import type { TreeNode, Config } from "../types";
-import { matchesKey } from "../config";
+import { KeyBindingManager } from "../config";
 import { container, TOKENS } from "../di/container";
 import type { HelpEntry, NavigableComponent, NavigationHelp } from "./NavigationHelp";
 import { ConfluenceClient } from "../confluence-client";
@@ -20,6 +20,7 @@ export interface TreeViewEvents {
 export class TreeView implements NavigableComponent {
   private renderer: CliRenderer;
   private config: Config;
+  private keys: KeyBindingManager;
   private client: ConfluenceClient;
   private events: TreeViewEvents;
   private navigationHelp: NavigationHelp | null = null;
@@ -35,6 +36,7 @@ export class TreeView implements NavigableComponent {
   constructor(events: TreeViewEvents = {}) {
     this.renderer = container.resolve<CliRenderer>(TOKENS.Renderer);
     this.config = container.resolve<Config>(TOKENS.Config);
+    this.keys = container.resolve<KeyBindingManager>(TOKENS.KeyBindings);
     this.client = container.resolve<ConfluenceClient>(TOKENS.Client);
     this.events = events;
 
@@ -127,10 +129,8 @@ export class TreeView implements NavigableComponent {
    * Handle keypress events for tree view
    */
   handleKeypress(key: KeyEvent): boolean {
-    const { keyBindings } = this.config;
-
     // Expand/collapse or navigate into with right/l
-    if (matchesKey(key, keyBindings.right)) {
+    if (this.keys.matches("right", key) || this.keys.matches("select", key)) {
       const node = this.getSelectedNode();
       if (node) {
         if (node.type === "space" && !node.expanded) {
@@ -144,7 +144,7 @@ export class TreeView implements NavigableComponent {
     }
 
     // Collapse with left/h
-    if (matchesKey(key, keyBindings.left)) {
+    if (this.keys.matches("left", key)) {
       const node = this.getSelectedNode();
       if (node && node.type === "space" && node.expanded) {
         this.toggleExpand(node);
@@ -153,7 +153,7 @@ export class TreeView implements NavigableComponent {
     }
 
     // Refresh
-    if (matchesKey(key, keyBindings.refresh)) {
+    if (this.keys.matches("refresh", key)) {
       this.loadSpaces();
       return true;
     }
@@ -166,10 +166,10 @@ export class TreeView implements NavigableComponent {
    */
   getHelpEntries(): HelpEntry[] {
     return [
-      { key: "j/k", description: "navigate" },
-      { key: "l/Enter", description: "open" },
-      { key: "h", description: "collapse" },
-      { key: "r", description: "refresh" },
+      { key: this.keys.getCombinedLabel(["down", "up"]), description: "navigate" },
+      { key: `${this.keys.getLabel("right")}/${this.keys.getLabel("select")}`, description: "open" },
+      { key: this.keys.getLabel("left"), description: "collapse" },
+      { key: this.keys.getLabel("refresh"), description: "refresh" },
     ];
   }
 

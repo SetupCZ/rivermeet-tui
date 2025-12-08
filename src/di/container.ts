@@ -79,6 +79,7 @@ export const TOKENS = {
   Config: Symbol("Config"),
   Client: Symbol("Client"),
   Cache: Symbol("Cache"),
+  KeyBindings: Symbol("KeyBindings"),
   
   // Components
   TreeView: Symbol("TreeView"),

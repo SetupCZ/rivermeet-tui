@@ -1,19 +1,40 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import type { Config, KeyBindings } from "./types";
+import type { Config, KeyBindings, KeyAction } from "./types";
+import type { KeyEvent } from "@opentui/core";
 
 const DEFAULT_KEY_BINDINGS: KeyBindings = {
+  // Navigation
   up: ["k", "up"],
   down: ["j", "down"],
   left: ["h", "left"],
   right: ["l", "right"],
   select: ["return", "enter"],
   back: ["escape", "backspace"],
+  // Page navigation
+  halfPageUp: ["ctrl+u"],
+  halfPageDown: ["ctrl+d"],
+  lineStart: ["0"],
+  lineEnd: ["$"],
+  documentTop: ["g"],
+  documentBottom: ["G"],
+  wordForward: ["w"],
+  wordBackward: ["b"],
+  // Actions
   edit: ["i"],
   quit: ["q"],
   search: ["/"],
+  searchNext: ["n"],
+  searchPrev: ["N"],
   refresh: ["r"],
+  publish: ["p"],
+  yank: ["y"],
+  visualChar: ["v"],
+  visualLine: ["V"],
+  confirm: ["y"],
+  cancel: ["n", "escape"],
+  debug: ["d"],
 };
 
 const DEFAULT_THEME = {
@@ -170,8 +191,108 @@ export function validateConfig(config: Config): string[] {
   return errors;
 }
 
-export function matchesKey(key: { name: string }, bindings: string[]): boolean {
-  return bindings.includes(key.name);
+export function matchesKey(key: { name: string; ctrl?: boolean; shift?: boolean; meta?: boolean }, bindings: string[]): boolean {
+  return bindings.some(binding => {
+    // Parse binding like "ctrl+u", "shift+g", "G", etc.
+    const parts = binding.toLowerCase().split("+");
+    const keyName = parts[parts.length - 1];
+    const needsCtrl = parts.includes("ctrl");
+    const needsShift = parts.includes("shift");
+    const needsMeta = parts.includes("meta");
+    
+    // Check if it's an uppercase letter (implies shift)
+    const isUpperCase = binding.length === 1 && binding === binding.toUpperCase() && binding !== binding.toLowerCase();
+    
+    // Match key name
+    const nameMatches = key.name?.toLowerCase() === keyName;
+    
+    // Match modifiers
+    const ctrlMatches = needsCtrl ? !!key.ctrl : !key.ctrl;
+    const shiftMatches = needsShift || isUpperCase ? !!key.shift : !key.shift;
+    const metaMatches = needsMeta ? !!key.meta : !key.meta;
+    
+    return nameMatches && ctrlMatches && shiftMatches && metaMatches;
+  });
+}
+
+/**
+ * KeyBindingManager - centralized keybinding management
+ * 
+ * Provides:
+ * - Action checking via matches(action, key)
+ * - Human-readable key labels for help display
+ * - Centralized keybinding configuration
+ */
+export class KeyBindingManager {
+  private bindings: KeyBindings;
+  
+  constructor(bindings: KeyBindings) {
+    this.bindings = bindings;
+  }
+  
+  /**
+   * Check if a key event matches an action
+   */
+  matches(action: KeyAction, key: KeyEvent): boolean {
+    const actionBindings = this.bindings[action];
+    if (!actionBindings) return false;
+    return matchesKey(key, actionBindings);
+  }
+  
+  /**
+   * Get the key bindings for an action
+   */
+  getBindings(action: KeyAction): string[] {
+    return this.bindings[action] || [];
+  }
+  
+  /**
+   * Get a human-readable label for an action's keybinding
+   * Used for help display
+   */
+  getLabel(action: KeyAction): string {
+    const bindings = this.bindings[action];
+    if (!bindings || bindings.length === 0) return "";
+    
+    // Format the first binding for display
+    return this.formatBinding(bindings[0]!);
+  }
+  
+  /**
+   * Get a combined label for multiple actions (e.g., "j/k" for up/down)
+   */
+  getCombinedLabel(actions: KeyAction[]): string {
+    return actions.map(a => this.getLabel(a)).join("/");
+  }
+  
+  /**
+   * Format a binding string for human display
+   */
+  private formatBinding(binding: string): string {
+    // Handle special cases
+    const specialKeys: Record<string, string> = {
+      "return": "Enter",
+      "enter": "Enter",
+      "escape": "Esc",
+      "backspace": "Bksp",
+      "up": "↑",
+      "down": "↓",
+      "left": "←",
+      "right": "→",
+    };
+    
+    const parts = binding.split("+");
+    const formatted = parts.map(p => {
+      const lower = p.toLowerCase();
+      if (specialKeys[lower]) return specialKeys[lower];
+      if (p === "ctrl") return "Ctrl";
+      if (p === "shift") return "Shift";
+      if (p === "meta") return "Cmd";
+      return p;
+    });
+    
+    return formatted.join("+");
+  }
 }
 
 export { DEFAULT_KEY_BINDINGS, DEFAULT_THEME };
